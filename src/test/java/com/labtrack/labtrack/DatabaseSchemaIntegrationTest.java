@@ -13,9 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DatabaseSchemaIntegrationTest {
 
     private static final List<String> EXPECTED_TABLES = List.of(
-            "professor", "aluno", "tecnico", "projeto", "equipamento",
-            "historico_status", "emprestimo", "item_emprestimo",
-            "devolucao", "notificacao");
+            "professor", "student", "technician", "project", "equipment",
+            "status_history", "loan", "loan_item",
+            "loan_return", "notification");
 
     @Autowired
     private JdbcTemplate jdbcTemplate;

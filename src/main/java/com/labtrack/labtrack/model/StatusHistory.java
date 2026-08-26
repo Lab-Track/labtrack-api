@@ -16,31 +16,31 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "historico_status")
+@Table(name = "status_history")
 @Getter
 @Setter
 @NoArgsConstructor
-public class HistoricoStatus {
+public class StatusHistory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_historico")
-    private Long idHistorico;
+    @Column(name = "id")
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_equipamento", nullable = false)
-    private Equipamento equipamento;
+    @JoinColumn(name = "equipment_id", nullable = false)
+    private Equipment equipment;
 
-    @Column(name = "status_anterior", nullable = false)
-    private String statusAnterior;
+    @Column(name = "previous_status", nullable = false)
+    private String previousStatus;
 
-    @Column(name = "status_novo", nullable = false)
-    private String statusNovo;
+    @Column(name = "new_status", nullable = false)
+    private String newStatus;
 
-    @Column(name = "data_alteracao", nullable = false)
-    private LocalDateTime dataAlteracao;
+    @Column(name = "change_date", nullable = false)
+    private LocalDateTime changeDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_tecnico", nullable = false)
-    private Tecnico tecnico;
+    @JoinColumn(name = "technician_id", nullable = false)
+    private Technician technician;
 }

@@ -50,7 +50,7 @@ Com o Postgres do `docker compose up -d` no ar (o teste de integracao conecta ne
 ./gradlew test
 ```
 
-Isso inclui um teste de integracao que confirma que as 10 tabelas do dominio (professor, aluno, tecnico, projeto, equipamento, historico_status, emprestimo, item_emprestimo, devolucao, notificacao) existem apos a migration.
+Isso inclui um teste de integracao que confirma que as 10 tabelas do dominio (professor, student, technician, project, equipment, status_history, loan, loan_item, loan_return, notification) existem apos a migration.
 
 ## Parar o banco de dados
 

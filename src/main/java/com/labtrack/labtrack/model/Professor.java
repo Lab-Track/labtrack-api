@@ -19,11 +19,11 @@ public class Professor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_professor")
-    private Long idProfessor;
+    @Column(name = "id")
+    private Long id;
 
-    @Column(name = "nome", nullable = false)
-    private String nome;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(name = "email", nullable = false)
     private String email;

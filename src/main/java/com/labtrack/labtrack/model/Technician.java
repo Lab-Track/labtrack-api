@@ -11,25 +11,25 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "tecnico")
+@Table(name = "technician")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Tecnico {
+public class Technician {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_tecnico")
-    private Long idTecnico;
+    @Column(name = "id")
+    private Long id;
 
-    @Column(name = "nome", nullable = false)
-    private String nome;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(name = "login", nullable = false, unique = true)
     private String login;
 
-    @Column(name = "senha_hash", nullable = false)
-    private String senhaHash;
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
 
     @Column(name = "email", nullable = false)
     private String email;

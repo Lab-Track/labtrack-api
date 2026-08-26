@@ -14,32 +14,32 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "aluno")
+@Table(name = "student")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Aluno {
+public class Student {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_aluno")
-    private Long idAluno;
+    @Column(name = "id")
+    private Long id;
 
-    @Column(name = "matricula", unique = true)
-    private String matricula;
+    @Column(name = "registration_number", unique = true)
+    private String registrationNumber;
 
-    @Column(name = "nome", nullable = false)
-    private String nome;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(name = "email", nullable = false)
     private String email;
 
-    @Column(name = "telefone")
-    private String telefone;
+    @Column(name = "phone")
+    private String phone;
 
-    @Column(name = "taxa_confiabilidade", nullable = false, precision = 5, scale = 2)
-    private BigDecimal taxaConfiabilidade;
+    @Column(name = "reliability_rate", nullable = false, precision = 5, scale = 2)
+    private BigDecimal reliabilityRate;
 
-    @Column(name = "data_cadastro", nullable = false)
-    private LocalDateTime dataCadastro;
+    @Column(name = "registration_date", nullable = false)
+    private LocalDateTime registrationDate;
 }

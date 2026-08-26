@@ -1,88 +1,88 @@
 CREATE TABLE professor (
-    id_professor BIGSERIAL PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE aluno (
-    id_aluno BIGSERIAL PRIMARY KEY,
-    matricula VARCHAR(50) UNIQUE,
-    nome VARCHAR(255) NOT NULL,
+CREATE TABLE student (
+    id BIGSERIAL PRIMARY KEY,
+    registration_number VARCHAR(50) UNIQUE,
+    name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    telefone VARCHAR(20),
-    taxa_confiabilidade NUMERIC(5,2) NOT NULL DEFAULT 100,
-    data_cadastro TIMESTAMP NOT NULL DEFAULT now()
+    phone VARCHAR(20),
+    reliability_rate NUMERIC(5,2) NOT NULL DEFAULT 100,
+    registration_date TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE TABLE tecnico (
-    id_tecnico BIGSERIAL PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
+CREATE TABLE technician (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     login VARCHAR(100) NOT NULL UNIQUE,
-    senha_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE projeto (
-    id_projeto BIGSERIAL PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
-    id_professor BIGINT NOT NULL REFERENCES professor(id_professor)
+CREATE TABLE project (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    professor_id BIGINT NOT NULL REFERENCES professor(id)
 );
 
-CREATE TABLE equipamento (
-    id_equipamento BIGSERIAL PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
-    foto_identificacao VARCHAR(500) NOT NULL,
-    estado_atual VARCHAR(20) NOT NULL
-        CHECK (estado_atual IN ('disponivel', 'emprestado', 'manutencao', 'danificado')),
-    id_projeto BIGINT REFERENCES projeto(id_projeto)
+CREATE TABLE equipment (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    identification_photo VARCHAR(500) NOT NULL,
+    current_status VARCHAR(20) NOT NULL
+        CHECK (current_status IN ('available', 'loaned', 'maintenance', 'damaged')),
+    project_id BIGINT REFERENCES project(id)
 );
 
-CREATE TABLE historico_status (
-    id_historico BIGSERIAL PRIMARY KEY,
-    id_equipamento BIGINT NOT NULL REFERENCES equipamento(id_equipamento),
-    status_anterior VARCHAR(20) NOT NULL,
-    status_novo VARCHAR(20) NOT NULL,
-    data_alteracao TIMESTAMP NOT NULL DEFAULT now(),
-    id_tecnico BIGINT NOT NULL REFERENCES tecnico(id_tecnico)
+CREATE TABLE status_history (
+    id BIGSERIAL PRIMARY KEY,
+    equipment_id BIGINT NOT NULL REFERENCES equipment(id),
+    previous_status VARCHAR(20) NOT NULL,
+    new_status VARCHAR(20) NOT NULL,
+    change_date TIMESTAMP NOT NULL DEFAULT now(),
+    technician_id BIGINT NOT NULL REFERENCES technician(id)
 );
 
-CREATE TABLE emprestimo (
-    id_emprestimo BIGSERIAL PRIMARY KEY,
-    id_aluno BIGINT NOT NULL REFERENCES aluno(id_aluno),
-    id_professor_responsavel BIGINT NOT NULL REFERENCES professor(id_professor),
-    id_tecnico BIGINT NOT NULL REFERENCES tecnico(id_tecnico),
-    data_hora_retirada TIMESTAMP NOT NULL,
-    data_prevista_devolucao TIMESTAMP NOT NULL,
-    data_prorrogada TIMESTAMP,
-    status_emprestimo VARCHAR(20) NOT NULL
-        CHECK (status_emprestimo IN ('andamento', 'atrasado', 'devolvido', 'parcial'))
+CREATE TABLE loan (
+    id BIGSERIAL PRIMARY KEY,
+    student_id BIGINT NOT NULL REFERENCES student(id),
+    responsible_professor_id BIGINT NOT NULL REFERENCES professor(id),
+    technician_id BIGINT NOT NULL REFERENCES technician(id),
+    checkout_date TIMESTAMP NOT NULL,
+    expected_return_date TIMESTAMP NOT NULL,
+    extended_date TIMESTAMP,
+    loan_status VARCHAR(20) NOT NULL
+        CHECK (loan_status IN ('in_progress', 'late', 'returned', 'partial'))
 );
 
-CREATE TABLE item_emprestimo (
-    id_item_emprestimo BIGSERIAL PRIMARY KEY,
-    id_emprestimo BIGINT NOT NULL REFERENCES emprestimo(id_emprestimo),
-    id_equipamento BIGINT NOT NULL REFERENCES equipamento(id_equipamento),
-    foto_retirada VARCHAR(500) NOT NULL,
-    estado_retirada VARCHAR(255) NOT NULL,
-    status_item VARCHAR(20) NOT NULL
-        CHECK (status_item IN ('emprestado', 'devolvido', 'removido'))
+CREATE TABLE loan_item (
+    id BIGSERIAL PRIMARY KEY,
+    loan_id BIGINT NOT NULL REFERENCES loan(id),
+    equipment_id BIGINT NOT NULL REFERENCES equipment(id),
+    checkout_photo VARCHAR(500) NOT NULL,
+    checkout_condition VARCHAR(255) NOT NULL,
+    item_status VARCHAR(20) NOT NULL
+        CHECK (item_status IN ('loaned', 'returned', 'removed'))
 );
 
-CREATE TABLE devolucao (
-    id_devolucao BIGSERIAL PRIMARY KEY,
-    id_item_emprestimo BIGINT NOT NULL UNIQUE REFERENCES item_emprestimo(id_item_emprestimo),
-    data_hora_devolucao TIMESTAMP NOT NULL,
-    estado_devolucao VARCHAR(255) NOT NULL,
-    observacoes VARCHAR(1000),
-    status_verificacao VARCHAR(20) NOT NULL
-        CHECK (status_verificacao IN ('funcionando', 'defeito', 'nao_testado')),
-    atraso BOOLEAN NOT NULL DEFAULT false
+CREATE TABLE loan_return (
+    id BIGSERIAL PRIMARY KEY,
+    loan_item_id BIGINT NOT NULL UNIQUE REFERENCES loan_item(id),
+    return_date TIMESTAMP NOT NULL,
+    return_condition VARCHAR(255) NOT NULL,
+    notes VARCHAR(1000),
+    verification_status VARCHAR(20) NOT NULL
+        CHECK (verification_status IN ('working', 'defective', 'not_tested')),
+    overdue BOOLEAN NOT NULL DEFAULT false
 );
 
-CREATE TABLE notificacao (
-    id_notificacao BIGSERIAL PRIMARY KEY,
-    id_emprestimo BIGINT NOT NULL REFERENCES emprestimo(id_emprestimo),
-    data_envio TIMESTAMP NOT NULL,
-    canal VARCHAR(50) NOT NULL,
-    status_envio VARCHAR(20) NOT NULL
+CREATE TABLE notification (
+    id BIGSERIAL PRIMARY KEY,
+    loan_id BIGINT NOT NULL REFERENCES loan(id),
+    sent_date TIMESTAMP NOT NULL,
+    channel VARCHAR(50) NOT NULL,
+    delivery_status VARCHAR(20) NOT NULL
 );

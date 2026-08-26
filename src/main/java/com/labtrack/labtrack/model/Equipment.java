@@ -14,21 +14,27 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "projeto")
+@Table(name = "equipment")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Projeto {
+public class Equipment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_projeto")
-    private Long idProjeto;
+    @Column(name = "id")
+    private Long id;
 
-    @Column(name = "nome", nullable = false)
-    private String nome;
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "identification_photo", nullable = false)
+    private String identificationPhoto;
+
+    @Column(name = "current_status", nullable = false)
+    private String currentStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_professor", nullable = false)
-    private Professor professor;
+    @JoinColumn(name = "project_id")
+    private Project project;
 }

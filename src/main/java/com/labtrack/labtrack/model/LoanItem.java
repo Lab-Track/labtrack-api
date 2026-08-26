@@ -14,31 +14,31 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "item_emprestimo")
+@Table(name = "loan_item")
 @Getter
 @Setter
 @NoArgsConstructor
-public class ItemEmprestimo {
+public class LoanItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_item_emprestimo")
-    private Long idItemEmprestimo;
+    @Column(name = "id")
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_emprestimo", nullable = false)
-    private Emprestimo emprestimo;
+    @JoinColumn(name = "loan_id", nullable = false)
+    private Loan loan;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_equipamento", nullable = false)
-    private Equipamento equipamento;
+    @JoinColumn(name = "equipment_id", nullable = false)
+    private Equipment equipment;
 
-    @Column(name = "foto_retirada", nullable = false)
-    private String fotoRetirada;
+    @Column(name = "checkout_photo", nullable = false)
+    private String checkoutPhoto;
 
-    @Column(name = "estado_retirada", nullable = false)
-    private String estadoRetirada;
+    @Column(name = "checkout_condition", nullable = false)
+    private String checkoutCondition;
 
-    @Column(name = "status_item", nullable = false)
-    private String statusItem;
+    @Column(name = "item_status", nullable = false)
+    private String itemStatus;
 }
