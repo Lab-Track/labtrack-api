@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 public interface LoanRepository extends JpaRepository<Loan, Long> {
 
-    @Query("SELECT l FROM Loan l WHERE l.student = :student AND l.loanStatus = 'ACTIVE'")
+    @Query("SELECT l FROM Loan l WHERE l.student = :student AND l.loanStatus = 'in_progress'")
     List<Loan> findActiveLoansByStudent(@Param("student") Student student);
 
     @Query("SELECT l FROM Loan l WHERE l.student.registrationNumber = :registration AND l.loanStatus = 'ACTIVE'")
