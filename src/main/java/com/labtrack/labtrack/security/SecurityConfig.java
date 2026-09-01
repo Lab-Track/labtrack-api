@@ -17,9 +17,10 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
     public SecurityConfig(
-            JwtService jwtService,
-            TechnicianUserDetailsService userDetailsService,
-            RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
+        JwtService jwtService,
+        TechnicianUserDetailsService userDetailsService,
+        RestAuthenticationEntryPoint restAuthenticationEntryPoint
+    ) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
