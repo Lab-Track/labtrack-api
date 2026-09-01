@@ -10,7 +10,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-class DatabaseSchemaIntegrationTest {
+class DatabaseSchemaIT {
 
     private static final List<String> EXPECTED_TABLES = List.of(
             "professor", "student", "technician", "project", "equipment",

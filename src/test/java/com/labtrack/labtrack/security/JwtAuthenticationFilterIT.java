@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class JwtAuthenticationFilterIntegrationTest {
+class JwtAuthenticationFilterIT {
 
     @Autowired
     private MockMvc mockMvc;
