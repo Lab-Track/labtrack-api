@@ -35,6 +35,8 @@ public class StudentController {
             @ApiResponse(responseCode = "404", description = "Aluno não encontrado"),
             @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente")
     })
+
+
     @GetMapping("/{matricula}/emprestimos-ativos")
     public ResponseEntity<List<ActiveLoanDTO>> getEmprestimosAtivos(
             @PathVariable
@@ -53,5 +55,12 @@ public class StudentController {
             log.warn("Aluno não encontrado: {}", matricula);
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/teste")
+    public ResponseEntity<String> teste(){
+        log.info("Endpoint de teste chamado!");
+        return ResponseEntity.ok("Controller funcioando");
+
     }
 }
