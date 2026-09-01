@@ -18,13 +18,13 @@ Backend do LabTrack — sistema de controle de emprestimo de equipamentos de lab
 src/main/java/com/labtrack/labtrack/
 ├── LabtrackApplication.java
 ├── config/          # configuracoes gerais do Spring
-├── controller/      # endpoints REST (ainda nao implementados)
+├── controller/      # endpoints REST (login de tecnico; demais endpoints ainda nao implementados)
 ├── service/         # regras de negocio (ainda nao implementado)
-├── repository/      # acesso a dados (ainda nao implementado)
+├── repository/      # acesso a dados (TechnicianRepository)
 ├── model/           # entidades JPA (10 tabelas do dominio)
 ├── dto/             # objetos de transferencia de dados
 ├── exception/       # tratamento de erros
-└── security/        # configuracao de seguranca (modo dev por enquanto)
+└── security/        # autenticacao JWT e protecao das rotas
 ```
 
 O schema do banco fica em `src/main/resources/db/migration/` (Flyway) e o diagrama ER de referencia em `docs/LabTrack_DB.drawio`.
@@ -66,4 +66,10 @@ docker compose down -v
 
 ## Seguranca
 
-O `SecurityConfig` atual libera todas as requisicoes no profile `dev` (ativo por padrao) para nao travar o desenvolvimento dos endpoints. A logica de autenticacao/JWT ainda nao foi implementada — e escopo de uma task futura.
+Login via `POST /api/auth/login` com `{ "login": "...", "password": "..." }`, retornando `{ "token": "...", "expiresAt": "..." }` (JWT valido por 8 horas). Todas as demais rotas exigem o header `Authorization: Bearer <token>`; sem token valido a API responde `401`.
+
+A chave de assinatura do JWT vem de `jwt.secret` (`application.yml`), com um valor padrao apenas para dev local — em outros ambientes, defina a variavel de ambiente `JWT_SECRET`.
+
+Tecnico de teste (inserido via migration `V2__seed_test_technician.sql`, so para uso local):
+- login: `tecnico.teste`
+- senha: `Senha@123`

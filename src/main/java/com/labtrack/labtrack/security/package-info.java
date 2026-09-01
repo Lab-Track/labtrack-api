@@ -1,5 +1,6 @@
 /**
- * Configuracao de seguranca. A logica de autenticacao/JWT e de outra
- * task; por enquanto so existe a config minima de desenvolvimento.
+ * Configuracao de seguranca: autenticacao JWT (login de tecnico via
+ * JwtService/JwtAuthenticationFilter) e protecao de todas as demais
+ * rotas via SecurityFilterChain.
  */
 package com.labtrack.labtrack.security;
