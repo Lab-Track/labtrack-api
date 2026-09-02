@@ -54,7 +54,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getEmprestimosAtivos(registration);
+                .getActiveLoans(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -73,7 +73,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getEmprestimosAtivos(registration);
+                .getActiveLoans(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -90,7 +90,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getEmprestimosAtivos(registration);
+                .getActiveLoans(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
