@@ -38,7 +38,7 @@ public class StudentController {
 
 
     @GetMapping("/{matricula}/emprestimos-ativos")
-    public ResponseEntity<List<ActiveLoanDTO>> getEmprestimosAtivos(
+    public ResponseEntity<List<ActiveLoanDTO>> getActiveLoans(
             @PathVariable
             @NotBlank(message = "Matrícula não pode ser vazia")
             @Parameter(description = "Número de matrícula do aluno", example = "2021001")
