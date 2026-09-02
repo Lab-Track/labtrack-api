@@ -37,7 +37,7 @@ public class StudentController {
     })
 
 
-    @GetMapping("/{matricula}/active-loan")
+    @GetMapping("/{matricula}/emprestimos-ativos")
     public ResponseEntity<List<ActiveLoanDTO>> getEmprestimosAtivos(
             @PathVariable
             @NotBlank(message = "Matrícula não pode ser vazia")
@@ -52,5 +52,10 @@ public class StudentController {
         return ResponseEntity.ok(activeLoans);
     }
 
+    @GetMapping("/teste")
+    public ResponseEntity<String> teste(){
+        log.info("Endpoint de teste chamado!");
+        return ResponseEntity.ok("Controller funcioando");
 
+    }
 }
