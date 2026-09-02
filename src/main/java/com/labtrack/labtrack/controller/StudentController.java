@@ -18,9 +18,9 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/alunos")
+@RequestMapping("/api/student")
 @RequiredArgsConstructor
-@Tag(name = "Aluno", description = "Endpoints para gerenciamento de alunos")
+@Tag(name = "Student", description = "Endpoints para gerenciamento de alunos")
 public class StudentController {
 
     private final StudentService studentService;
@@ -37,30 +37,20 @@ public class StudentController {
     })
 
 
-    @GetMapping("/{matricula}/emprestimos-ativos")
+    @GetMapping("/{matricula}/active-loan")
     public ResponseEntity<List<ActiveLoanDTO>> getEmprestimosAtivos(
             @PathVariable
             @NotBlank(message = "Matrícula não pode ser vazia")
             @Parameter(description = "Número de matrícula do aluno", example = "2021001")
             String matricula) {
 
-        log.info("Requisição GET /api/alunos/{}/emprestimos-ativos", matricula);
+        log.info("Requisição GET /api/student/{}/active-loan", matricula);
 
-        try {
-            List<ActiveLoanDTO> activeLoans = studentService.findActiveLoansByRegistration(matricula);
-            log.info("Retornando {} empréstimos ativos para matrícula: {}", activeLoans.size(), matricula);
-            return ResponseEntity.ok(activeLoans);
+        List<ActiveLoanDTO> activeLoans = studentService.findActiveLoansByRegistration(matricula);
+        log.info("Retornando {} empréstimos ativos para matrícula: {}", activeLoans.size(), matricula);
 
-        } catch (StudentNotFoundException e) {
-            log.warn("Aluno não encontrado: {}", matricula);
-            return ResponseEntity.notFound().build();
-        }
+        return ResponseEntity.ok(activeLoans);
     }
 
-    @GetMapping("/teste")
-    public ResponseEntity<String> teste(){
-        log.info("Endpoint de teste chamado!");
-        return ResponseEntity.ok("Controller funcioando");
 
-    }
 }
