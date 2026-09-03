@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
-public class ErrorResponse extends Exception{
+public class ErrorResponse{
     private LocalDateTime timestamp;
     private int status;
     private String error;

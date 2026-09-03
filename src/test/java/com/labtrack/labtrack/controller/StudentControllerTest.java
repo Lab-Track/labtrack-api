@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,7 +54,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getActiveLoans(registration);
+                .getEmprestimosAtivos(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -73,7 +73,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getActiveLoans(registration);
+                .getEmprestimosAtivos(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -82,17 +82,16 @@ class StudentControllerTest {
     }
 
     @Test
-    void shouldReturn404_WhenStudentNotFound() {
+    void shouldPropagateStudentNotFoundException_WhenStudentNotFound() {
         // Arrange
         String registration = "9999999";
         when(studentService.findActiveLoansByRegistration(registration))
                 .thenThrow(new StudentNotFoundException(registration));
 
-        // Act
-        ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getActiveLoans(registration);
-
-        // Assert
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        // Act & Assert
+        // The controller no longer catches this locally - GlobalExceptionHandler
+        // maps it to 404 at the HTTP layer (covered by an *IT test).
+        assertThatThrownBy(() -> studentController.getEmprestimosAtivos(registration))
+                .isInstanceOf(StudentNotFoundException.class);
     }
 }

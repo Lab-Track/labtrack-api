@@ -3,7 +3,6 @@ package com.labtrack.labtrack.controller;
 import com.labtrack.labtrack.dto.ActiveLoanDTO;
 import com.labtrack.labtrack.dto.StudentCreateRequest;
 import com.labtrack.labtrack.dto.StudentResponse;
-import com.labtrack.labtrack.exception.StudentNotFoundException;
 import com.labtrack.labtrack.service.StudentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,9 +21,9 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/students")
+@RequestMapping("/api/student")
 @RequiredArgsConstructor
-@Tag(name = "Aluno", description = "Endpoints para gerenciamento de alunos")
+@Tag(name = "Student", description = "Endpoints para gerenciamento de alunos")
 public class StudentController {
 
     private final StudentService studentService;
@@ -39,26 +38,19 @@ public class StudentController {
             @ApiResponse(responseCode = "404", description = "Aluno não encontrado"),
             @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente")
     })
-
-
-    @GetMapping("/{registrationNumber}/active-loans")
-    public ResponseEntity<List<ActiveLoanDTO>> getActiveLoans(
+    @GetMapping("/{matricula}/active-loan")
+    public ResponseEntity<List<ActiveLoanDTO>> getEmprestimosAtivos(
             @PathVariable
             @NotBlank(message = "Matrícula não pode ser vazia")
             @Parameter(description = "Número de matrícula do aluno", example = "2021001")
-            String registrationNumber) {
+            String matricula) {
 
-        log.info("Requisição GET /api/students/{}/active-loans", registrationNumber);
+        log.info("Requisição GET /api/student/{}/active-loan", matricula);
 
-        try {
-            List<ActiveLoanDTO> activeLoans = studentService.findActiveLoansByRegistration(registrationNumber);
-            log.info("Retornando {} empréstimos ativos para matrícula: {}", activeLoans.size(), registrationNumber);
-            return ResponseEntity.ok(activeLoans);
+        List<ActiveLoanDTO> activeLoans = studentService.findActiveLoansByRegistration(matricula);
+        log.info("Retornando {} empréstimos ativos para matrícula: {}", activeLoans.size(), matricula);
 
-        } catch (StudentNotFoundException e) {
-            log.warn("Aluno não encontrado: {}", registrationNumber);
-            return ResponseEntity.notFound().build();
-        }
+        return ResponseEntity.ok(activeLoans);
     }
 
     @Operation(
@@ -73,18 +65,11 @@ public class StudentController {
     })
     @PostMapping
     public ResponseEntity<StudentResponse> createStudent(@Valid @RequestBody StudentCreateRequest request) {
-        log.info("Requisição POST /api/students, matrícula: {}", request.registrationNumber());
+        log.info("Requisição POST /api/student, matrícula: {}", request.registrationNumber());
 
         StudentResponse response = studentService.createStudent(request);
 
         log.info("Aluno cadastrado com sucesso, id: {}", response.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @GetMapping("/teste")
-    public ResponseEntity<String> teste(){
-        log.info("Endpoint de teste chamado!");
-        return ResponseEntity.ok("Controller funcioando");
-
     }
 }
