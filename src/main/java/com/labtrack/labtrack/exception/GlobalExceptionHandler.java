@@ -62,4 +62,18 @@ public class GlobalExceptionHandler{
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
+
+    @ExceptionHandler(EquipmentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEquipmentNotFoundException(EquipmentNotFoundException ex) {
+        log.warn("Equipamento não encontrado: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Equipamento não encontrado")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
 }
