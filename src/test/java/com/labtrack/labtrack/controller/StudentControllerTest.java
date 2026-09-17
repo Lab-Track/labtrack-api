@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;  // ← ADICIONAR ESTE IMPORT
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -89,6 +89,8 @@ class StudentControllerTest {
                 .thenThrow(new StudentNotFoundException(registration));
 
         // Act & Assert
+        // The controller no longer catches this locally - GlobalExceptionHandler
+        // maps it to 404 at the HTTP layer (covered by an *IT test).
         assertThatThrownBy(() -> studentController.getActiveLoans(registration))
                 .isInstanceOf(StudentNotFoundException.class)
                 .hasMessageContaining("Aluno não encontrado com matrícula: " + registration);

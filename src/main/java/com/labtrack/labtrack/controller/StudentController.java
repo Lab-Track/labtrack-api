@@ -1,15 +1,19 @@
 package com.labtrack.labtrack.controller;
 
 import com.labtrack.labtrack.dto.ActiveLoanDTO;
+import com.labtrack.labtrack.dto.StudentCreateRequest;
+import com.labtrack.labtrack.dto.StudentResponse;
 import com.labtrack.labtrack.service.StudentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,5 +51,25 @@ public class StudentController {
         log.info("Returning {} active loans for registration: {}", activeLoans.size(), registration);
 
         return ResponseEntity.ok(activeLoans);
+    }
+
+    @Operation(
+            summary = "Register student manually (RF18)",
+            description = "Registers a student by name, registration number, email and phone, without linking to a loan."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Student registered successfully"),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid required fields"),
+            @ApiResponse(responseCode = "409", description = "Registration number already registered"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token")
+    })
+    @PostMapping
+    public ResponseEntity<StudentResponse> createStudent(@Valid @RequestBody StudentCreateRequest request) {
+        log.info("Request POST /api/students, registration: {}", request.registrationNumber());
+
+        StudentResponse response = studentService.createStudent(request);
+
+        log.info("Student registered successfully, id: {}", response.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
