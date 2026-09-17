@@ -30,6 +30,8 @@ class EquipmentServiceTest {
                 .name("Multímetro Digital")
                 .identificationPhoto("foto.jpg")
                 .currentStatus("available")
+                .location("Armário SparkImp")
+                .quantity(3)
                 .build();
 
         Equipment savedEquipment = new Equipment();
@@ -37,6 +39,8 @@ class EquipmentServiceTest {
         savedEquipment.setName(request.getName());
         savedEquipment.setIdentificationPhoto(request.getIdentificationPhoto());
         savedEquipment.setCurrentStatus(request.getCurrentStatus());
+        savedEquipment.setLocation(request.getLocation());
+        savedEquipment.setQuantity(request.getQuantity());
 
         when(equipmentRepository.save(any(Equipment.class))).thenReturn(savedEquipment);
 
@@ -48,5 +52,7 @@ class EquipmentServiceTest {
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getName()).isEqualTo("Multímetro Digital");
         assertThat(response.getIdentificationPhoto()).isEqualTo("foto.jpg");
+        assertThat(response.getLocation()).isEqualTo("Armário SparkImp");
+        assertThat(response.getQuantity()).isEqualTo(3);
     }
 }

@@ -24,6 +24,8 @@ public class EquipmentService {
         equipment.setName(request.getName());
         equipment.setIdentificationPhoto(request.getIdentificationPhoto());
         equipment.setCurrentStatus(request.getCurrentStatus() != null ? request.getCurrentStatus() : "available");
+        equipment.setLocation(request.getLocation());
+        equipment.setQuantity(request.getQuantity());
 
         Equipment savedEquipment = equipmentRepository.save(equipment);
         log.info("Equipamento criado com ID: {}", savedEquipment.getId());
@@ -37,6 +39,8 @@ public class EquipmentService {
                 .name(equipment.getName())
                 .identificationPhoto(equipment.getIdentificationPhoto())
                 .currentStatus(equipment.getCurrentStatus())
+                .location(equipment.getLocation())
+                .quantity(equipment.getQuantity())
                 .build();
     }
 }

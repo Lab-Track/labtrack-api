@@ -24,4 +24,10 @@ public class EquipmentResponseDTO {
 
     @Schema(description = "Status atual do equipamento", example = "available")
     private String currentStatus;
+
+    @Schema(description = "Localização física do equipamento", example = "Armário SparkImp")
+    private String location;
+
+    @Schema(description = "Quantidade de unidades em estoque", example = "1")
+    private Integer quantity;
 }
