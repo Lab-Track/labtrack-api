@@ -54,7 +54,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getEmprestimosAtivos(registration);
+                .getActiveLoans(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -73,7 +73,7 @@ class StudentControllerTest {
 
         // Act
         ResponseEntity<List<ActiveLoanDTO>> response = studentController
-                .getEmprestimosAtivos(registration);
+                .getActiveLoans(registration);
 
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -82,7 +82,7 @@ class StudentControllerTest {
     }
 
     @Test
-    void shouldPropagateStudentNotFoundException_WhenStudentNotFound() {
+    void shouldThrowStudentNotFoundException_WhenStudentNotFound() {
         // Arrange
         String registration = "9999999";
         when(studentService.findActiveLoansByRegistration(registration))
@@ -91,7 +91,8 @@ class StudentControllerTest {
         // Act & Assert
         // The controller no longer catches this locally - GlobalExceptionHandler
         // maps it to 404 at the HTTP layer (covered by an *IT test).
-        assertThatThrownBy(() -> studentController.getEmprestimosAtivos(registration))
-                .isInstanceOf(StudentNotFoundException.class);
+        assertThatThrownBy(() -> studentController.getActiveLoans(registration))
+                .isInstanceOf(StudentNotFoundException.class)
+                .hasMessageContaining("Aluno não encontrado com matrícula: " + registration);
     }
 }

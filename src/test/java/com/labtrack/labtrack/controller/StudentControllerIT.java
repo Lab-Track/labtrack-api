@@ -48,7 +48,7 @@ class StudentControllerIT {
         StudentCreateRequest request = new StudentCreateRequest(
                 "Carlos Pereira", "2023100", "carlos@email.com", "1177777777");
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + validToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -65,7 +65,7 @@ class StudentControllerIT {
         StudentCreateRequest request = new StudentCreateRequest(
                 "Carlos Pereira", "2023101", "carlos@email.com", "1177777777");
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
@@ -77,13 +77,13 @@ class StudentControllerIT {
                 "Carlos Pereira", "2023102", "carlos@email.com", "1177777777");
         String token = validToken();
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -96,7 +96,7 @@ class StudentControllerIT {
         StudentCreateRequest request = new StudentCreateRequest(
                 null, "2023103", "carlos@email.com", "1177777777");
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + validToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -108,7 +108,7 @@ class StudentControllerIT {
         StudentCreateRequest request = new StudentCreateRequest(
                 "Carlos Pereira", null, "carlos@email.com", "1177777777");
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + validToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -120,7 +120,7 @@ class StudentControllerIT {
         StudentCreateRequest request = new StudentCreateRequest(
                 "Carlos Pereira", "2023104", null, "1177777777");
 
-        mockMvc.perform(post("/api/student")
+        mockMvc.perform(post("/api/students")
                         .header("Authorization", "Bearer " + validToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

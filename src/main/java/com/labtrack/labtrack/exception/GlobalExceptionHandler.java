@@ -18,12 +18,12 @@ public class GlobalExceptionHandler{
 
     @ExceptionHandler(StudentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleStudentNotFoundException(StudentNotFoundException ex) {
-        log.warn("Aluno não encontrado: {}", ex.getMessage());
+        log.warn("Student not found: {}", ex.getMessage());
 
         ErrorResponse error = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.NOT_FOUND.value())
-                .error("Aluno não encontrado")
+                .error("Student not found")
                 .message(ex.getMessage())
                 .build();
 
