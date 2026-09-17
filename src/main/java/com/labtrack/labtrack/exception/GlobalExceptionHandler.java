@@ -45,6 +45,21 @@ public class GlobalExceptionHandler{
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    @ExceptionHandler(DuplicateTechnicianEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateTechnicianEmailException(
+            DuplicateTechnicianEmailException ex) {
+        log.warn("E-mail de técnico duplicado: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("E-mail já cadastrado")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String errors = ex.getBindingResult()
