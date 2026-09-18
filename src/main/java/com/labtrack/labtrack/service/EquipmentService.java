@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -87,35 +88,34 @@ public class EquipmentService {
 
     private EquipmentHistoryDTO toCheckoutDTO(LoanItem loanItem) {
         Loan loan = loanItem.getLoan();
-        return EquipmentHistoryDTO.builder()
-                .loanId(loan.getId())
-                .eventType(EVENT_TYPE_CHECKOUT)
-                .eventDate(loan.getCheckoutDate())
-                .studentName(loan.getStudent().getName())
-                .professorName(loan.getResponsibleProfessor().getName())
-                .build();
+        return toHistoryDTO(loan, EVENT_TYPE_CHECKOUT, loan.getCheckoutDate());
     }
 
     private EquipmentHistoryDTO toReturnDTO(LoanReturn loanReturn) {
         Loan loan = loanReturn.getLoanItem().getLoan();
+        return toHistoryDTO(loan, EVENT_TYPE_RETURN, loanReturn.getReturnDate());
+    }
+
+    private EquipmentHistoryDTO toHistoryDTO(Loan loan, String eventType, LocalDateTime eventDate) {
         return EquipmentHistoryDTO.builder()
                 .loanId(loan.getId())
-                .eventType(EVENT_TYPE_RETURN)
-                .eventDate(loanReturn.getReturnDate())
+                .eventType(eventType)
+                .eventDate(eventDate)
                 .studentName(loan.getStudent().getName())
                 .professorName(loan.getResponsibleProfessor().getName())
                 .build();
     }
 
     private Page<EquipmentHistoryDTO> paginate(List<EquipmentHistoryDTO> history, Pageable pageable) {
-        int total = history.size();
-        int start = (int) pageable.getOffset();
+        long total = history.size();
+        long start = pageable.getOffset();
 
         if (start >= total) {
             return new PageImpl<>(List.of(), pageable, total);
         }
 
-        int end = Math.min(start + pageable.getPageSize(), total);
-        return new PageImpl<>(history.subList(start, end), pageable, total);
+        int startIndex = (int) start;
+        int endIndex = (int) Math.min(start + pageable.getPageSize(), total);
+        return new PageImpl<>(history.subList(startIndex, endIndex), pageable, total);
     }
 }

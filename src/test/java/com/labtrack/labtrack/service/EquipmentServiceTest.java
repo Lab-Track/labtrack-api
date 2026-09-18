@@ -192,6 +192,25 @@ class EquipmentServiceTest {
     }
 
     @Test
+    void shouldReturnEmptyPage_WithoutOverflow_WhenOffsetExceedsIntRange() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of(loanItemA, loanItemB));
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of(loanReturnA));
+
+        // offset = 500_000 * 5_000 = 2_500_000_000, que estoura pra negativo se
+        // for truncado direto pra int (2_500_000_000 - 2^32 = -1_794_967_296)
+        Pageable pageable = PageRequest.of(500_000, 5_000);
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService.findLoanHistoryByEquipmentId(1L, pageable);
+
+        // Assert
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isEqualTo(3);
+    }
+
+    @Test
     void shouldReturnEmptyPage_WhenEquipmentHasNoLoans() {
         // Arrange
         when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));

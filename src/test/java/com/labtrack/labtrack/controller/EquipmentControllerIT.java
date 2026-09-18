@@ -193,6 +193,41 @@ class EquipmentControllerIT {
     }
 
     @Test
+    void getLoanHistoryReturns400_WhenPageIsNegative() throws Exception {
+        mockMvc.perform(get("/api/equipments/{id}/history", 1L)
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void getLoanHistoryReturns400_WhenSizeIsZero() throws Exception {
+        mockMvc.perform(get("/api/equipments/{id}/history", 1L)
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void getLoanHistoryReturns400_WhenSizeExceedsMax() throws Exception {
+        mockMvc.perform(get("/api/equipments/{id}/history", 1L)
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void getLoanHistoryReturns400_WhenIdIsNotNumeric() throws Exception {
+        mockMvc.perform(get("/api/equipments/{id}/history", "abc")
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     void getLoanHistoryReturns401_WhenNoTokenProvided() throws Exception {
         mockMvc.perform(get("/api/equipments/{id}/history", 1L))
                 .andExpect(status().isUnauthorized());
