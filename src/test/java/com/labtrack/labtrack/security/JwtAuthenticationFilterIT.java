@@ -65,8 +65,8 @@ class JwtAuthenticationFilterIT {
                 .build();
         String token = jwtService.generateToken(userDetails);
 
-        mockMvc.perform(get("/api/some-protected-resource")
+        mockMvc.perform(get("/api/students/2021001/active-loans")  // ← Valor fixo em vez de {registration}
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound());  // Aluno não existe → 404 esperado
     }
 }

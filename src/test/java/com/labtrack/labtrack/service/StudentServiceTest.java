@@ -2,6 +2,9 @@ package com.labtrack.labtrack.service;
 
 import com.labtrack.labtrack.dto.ActiveLoanDTO;
 import com.labtrack.labtrack.dto.ActiveLoanItemDTO;
+import com.labtrack.labtrack.dto.StudentCreateRequest;
+import com.labtrack.labtrack.dto.StudentResponse;
+import com.labtrack.labtrack.exception.DuplicateRegistrationNumberException;
 import com.labtrack.labtrack.exception.StudentNotFoundException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.LoanRepository;
@@ -138,5 +141,55 @@ class StudentServiceTest {
 
         verify(studentRepository).findByRegistrationNumber(registration);
         verify(loanRepository, never()).findActiveLoansByStudent(any());
+    }
+
+    @Test
+    void shouldCreateStudent_WhenRegistrationNumberIsNew() {
+        // Arrange
+        String newRegistration = "2022050";
+        StudentCreateRequest request = new StudentCreateRequest(
+                "Maria Souza", newRegistration, "maria@email.com", "1188888888");
+
+        when(studentRepository.findByRegistrationNumber(newRegistration))
+                .thenReturn(Optional.empty());
+        when(studentRepository.save(any(Student.class)))
+                .thenAnswer(invocation -> {
+                    Student saved = invocation.getArgument(0);
+                    saved.setId(2L);
+                    return saved;
+                });
+
+        // Act
+        StudentResponse result = studentService.createStudent(request);
+
+        // Assert
+        assertThat(result.id()).isEqualTo(2L);
+        assertThat(result.name()).isEqualTo("Maria Souza");
+        assertThat(result.registrationNumber()).isEqualTo(newRegistration);
+        assertThat(result.email()).isEqualTo("maria@email.com");
+        assertThat(result.phone()).isEqualTo("1188888888");
+        assertThat(result.reliabilityRate()).isEqualByComparingTo("100");
+        assertThat(result.registrationDate()).isNotNull();
+
+        verify(studentRepository).findByRegistrationNumber(newRegistration);
+        verify(studentRepository).save(any(Student.class));
+    }
+
+    @Test
+    void shouldThrowDuplicateRegistrationNumberException_WhenRegistrationNumberAlreadyExists() {
+        // Arrange
+        StudentCreateRequest request = new StudentCreateRequest(
+                "Maria Souza", registration, "maria@email.com", "1188888888");
+
+        when(studentRepository.findByRegistrationNumber(registration))
+                .thenReturn(Optional.of(student));
+
+        // Act & Assert
+        assertThatThrownBy(() -> studentService.createStudent(request))
+                .isInstanceOf(DuplicateRegistrationNumberException.class)
+                .hasMessageContaining(registration);
+
+        verify(studentRepository).findByRegistrationNumber(registration);
+        verify(studentRepository, never()).save(any());
     }
 }

@@ -1,6 +1,8 @@
 package com.labtrack.labtrack.service;
 
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
+import com.labtrack.labtrack.dto.EquipmentRequestDTO;
+import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.EquipmentRepository;
@@ -105,6 +107,39 @@ class EquipmentServiceTest {
         loanItemB.setLoan(loanB);
         loanItemB.setEquipment(equipment);
         loanItemB.setItemStatus("loaned");
+    }
+
+    @Test
+    void shouldCreateEquipment_WhenValidRequest() {
+        // Arrange
+        EquipmentRequestDTO request = EquipmentRequestDTO.builder()
+                .name("Multímetro Digital")
+                .identificationPhoto("foto.jpg")
+                .currentStatus("available")
+                .location("Armário SparkImp")
+                .quantity(3)
+                .build();
+
+        Equipment savedEquipment = new Equipment();
+        savedEquipment.setId(1L);
+        savedEquipment.setName(request.getName());
+        savedEquipment.setIdentificationPhoto(request.getIdentificationPhoto());
+        savedEquipment.setCurrentStatus(request.getCurrentStatus());
+        savedEquipment.setLocation(request.getLocation());
+        savedEquipment.setQuantity(request.getQuantity());
+
+        when(equipmentRepository.save(any(Equipment.class))).thenReturn(savedEquipment);
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response).isNotNull();
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getName()).isEqualTo("Multímetro Digital");
+        assertThat(response.getIdentificationPhoto()).isEqualTo("foto.jpg");
+        assertThat(response.getLocation()).isEqualTo("Armário SparkImp");
+        assertThat(response.getQuantity()).isEqualTo(3);
     }
 
     @Test

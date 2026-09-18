@@ -1,7 +1,10 @@
 package com.labtrack.labtrack.service;
 
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
+import com.labtrack.labtrack.dto.EquipmentRequestDTO;
+import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
+import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
@@ -32,6 +35,23 @@ public class EquipmentService {
     private final LoanItemRepository loanItemRepository;
     private final LoanReturnRepository loanReturnRepository;
 
+    @Transactional
+    public EquipmentResponseDTO createEquipment(EquipmentRequestDTO request) {
+        log.info("Criando novo equipamento: {}", request.getName());
+
+        Equipment equipment = new Equipment();
+        equipment.setName(request.getName());
+        equipment.setIdentificationPhoto(request.getIdentificationPhoto());
+        equipment.setCurrentStatus(request.getCurrentStatus() != null ? request.getCurrentStatus() : "available");
+        equipment.setLocation(request.getLocation());
+        equipment.setQuantity(request.getQuantity());
+
+        Equipment savedEquipment = equipmentRepository.save(equipment);
+        log.info("Equipamento criado com ID: {}", savedEquipment.getId());
+
+        return mapToResponseDTO(savedEquipment);
+    }
+
     @Transactional(readOnly = true)
     public Page<EquipmentHistoryDTO> findLoanHistoryByEquipmentId(Long equipmentId, Pageable pageable) {
         log.info("Buscando histórico de empréstimos do equipamento id: {}", equipmentId);
@@ -52,6 +72,17 @@ public class EquipmentService {
         log.info("Encontrados {} eventos de histórico para equipamento id: {}", history.size(), equipmentId);
 
         return paginate(history, pageable);
+    }
+
+    private EquipmentResponseDTO mapToResponseDTO(Equipment equipment) {
+        return EquipmentResponseDTO.builder()
+                .id(equipment.getId())
+                .name(equipment.getName())
+                .identificationPhoto(equipment.getIdentificationPhoto())
+                .currentStatus(equipment.getCurrentStatus())
+                .location(equipment.getLocation())
+                .quantity(equipment.getQuantity())
+                .build();
     }
 
     private EquipmentHistoryDTO toCheckoutDTO(LoanItem loanItem) {

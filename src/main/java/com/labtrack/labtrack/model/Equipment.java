@@ -34,6 +34,12 @@ public class Equipment {
     @Column(name = "current_status", nullable = false)
     private String currentStatus;
 
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;

@@ -1,6 +1,7 @@
 package com.labtrack.labtrack.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.labtrack.labtrack.dto.LoginRequest;
 import com.labtrack.labtrack.dto.LoginResponse;
 import com.labtrack.labtrack.model.Equipment;
@@ -64,7 +65,7 @@ class EquipmentControllerIT {
     @PersistenceContext
     private EntityManager entityManager;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private String jwtToken;
 
@@ -109,6 +110,7 @@ class EquipmentControllerIT {
         equipment.setName("Osciloscópio");
         equipment.setIdentificationPhoto("osciloscopio.jpg");
         equipment.setCurrentStatus("available");
+        equipment.setQuantity(1);
         equipmentRepository.save(equipment);
 
         Loan loanA = new Loan();
@@ -153,7 +155,7 @@ class EquipmentControllerIT {
         loanItemB.setItemStatus("loaned");
         loanItemRepository.save(loanItemB);
 
-        mockMvc.perform(get("/api/equipment/{id}/history", equipment.getId())
+        mockMvc.perform(get("/api/equipments/{id}/history", equipment.getId())
                         .header("Authorization", "Bearer " + jwtToken)
                         .param("page", "0")
                         .param("size", "2"))
@@ -163,8 +165,8 @@ class EquipmentControllerIT {
                 .andExpect(jsonPath("$.content[0].studentName").value("Bruno Lima"))
                 .andExpect(jsonPath("$.content[1].eventType").value("DEVOLUCAO"))
                 .andExpect(jsonPath("$.content[1].studentName").value("Ana Souza"))
-                .andExpect(jsonPath("$.page.totalElements").value(3))
-                .andExpect(jsonPath("$.page.totalPages").value(2));
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
     }
 
     @Test
@@ -173,9 +175,10 @@ class EquipmentControllerIT {
         equipment.setName("Multímetro sem uso");
         equipment.setIdentificationPhoto("multimetro.jpg");
         equipment.setCurrentStatus("available");
+        equipment.setQuantity(1);
         equipmentRepository.save(equipment);
 
-        mockMvc.perform(get("/api/equipment/{id}/history", equipment.getId())
+        mockMvc.perform(get("/api/equipments/{id}/history", equipment.getId())
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0));
@@ -183,7 +186,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns404_WhenEquipmentDoesNotExist() throws Exception {
-        mockMvc.perform(get("/api/equipment/{id}/history", 999999L)
+        mockMvc.perform(get("/api/equipments/{id}/history", 999999L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
@@ -191,7 +194,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns401_WhenNoTokenProvided() throws Exception {
-        mockMvc.perform(get("/api/equipment/{id}/history", 1L))
+        mockMvc.perform(get("/api/equipments/{id}/history", 1L))
                 .andExpect(status().isUnauthorized());
     }
 }
