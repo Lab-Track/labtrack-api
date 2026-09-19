@@ -61,7 +61,7 @@ class StudentServiceTest {
         equipment.setId(1L);
         equipment.setName("Multímetro Digital");
         equipment.setIdentificationPhoto("multimetro.jpg");
-        equipment.setCurrentStatus("available");
+        equipment.setCurrentStatus(EquipmentStatus.DISPONIVEL);
 
         loan = new Loan();
         loan.setId(1L);

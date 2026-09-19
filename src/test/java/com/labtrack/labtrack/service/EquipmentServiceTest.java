@@ -3,6 +3,7 @@ package com.labtrack.labtrack.service;
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
+import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.EquipmentRepository;
@@ -57,7 +58,7 @@ class EquipmentServiceTest {
         equipment.setId(1L);
         equipment.setName("Osciloscópio");
         equipment.setIdentificationPhoto("osciloscopio.jpg");
-        equipment.setCurrentStatus("available");
+        equipment.setCurrentStatus(EquipmentStatus.DISPONIVEL);
 
         professor = new Professor();
         professor.setId(1L);
@@ -112,34 +113,90 @@ class EquipmentServiceTest {
     @Test
     void shouldCreateEquipment_WhenValidRequest() {
         // Arrange
-        EquipmentRequestDTO request = EquipmentRequestDTO.builder()
-                .name("Multímetro Digital")
-                .identificationPhoto("foto.jpg")
-                .currentStatus("available")
-                .location("Armário SparkImp")
-                .quantity(3)
-                .build();
+        EquipmentRequestDTO request = buildCreateRequest(EquipmentStatus.MANUTENCAO);
 
-        Equipment savedEquipment = new Equipment();
-        savedEquipment.setId(1L);
-        savedEquipment.setName(request.getName());
-        savedEquipment.setIdentificationPhoto(request.getIdentificationPhoto());
-        savedEquipment.setCurrentStatus(request.getCurrentStatus());
-        savedEquipment.setLocation(request.getLocation());
-        savedEquipment.setQuantity(request.getQuantity());
-
-        when(equipmentRepository.save(any(Equipment.class))).thenReturn(savedEquipment);
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            saved.setCreatedAt(LocalDateTime.of(2026, 9, 19, 10, 30));
+            return saved;
+        });
 
         // Act
         EquipmentResponseDTO response = equipmentService.createEquipment(request);
 
         // Assert
-        assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getName()).isEqualTo("Multímetro Digital");
+        assertThat(response.getCode()).isEqualTo("EQP-0001");
         assertThat(response.getIdentificationPhoto()).isEqualTo("foto.jpg");
-        assertThat(response.getLocation()).isEqualTo("Armário SparkImp");
+        assertThat(response.getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
+        assertThat(response.getCategory()).isEqualTo("Medição");
+        assertThat(response.getLaboratory()).isEqualTo("Laboratório de Eletrônica");
         assertThat(response.getQuantity()).isEqualTo(3);
+        assertThat(response.getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 9, 19, 10, 30));
+    }
+
+    @Test
+    void shouldDefaultStatusToDisponivel_WhenRequestHasNoStatus() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getCurrentStatus()).isEqualTo(EquipmentStatus.DISPONIVEL);
+    }
+
+    @Test
+    void shouldThrowDuplicateEquipmentCodeException_WhenCodeAlreadyExists() {
+        // Arrange
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(true);
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.createEquipment(buildCreateRequest(null)))
+                .isInstanceOf(DuplicateEquipmentCodeException.class)
+                .hasMessageContaining("EQP-0001");
+
+        verify(equipmentRepository, never()).save(any(Equipment.class));
+    }
+
+    @Test
+    void shouldSubtractLoanedItemsFromAvailableQuantity() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(7L);
+            return saved;
+        });
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(7L, "loaned")).thenReturn(2L);
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getQuantity()).isEqualTo(3);
+        assertThat(response.getAvailableQuantity()).isEqualTo(1);
+    }
+
+    private EquipmentRequestDTO buildCreateRequest(EquipmentStatus status) {
+        return EquipmentRequestDTO.builder()
+                .name("Multímetro Digital")
+                .code("EQP-0001")
+                .identificationPhoto("foto.jpg")
+                .currentStatus(status)
+                .category("Medição")
+                .laboratory("Laboratório de Eletrônica")
+                .quantity(3)
+                .build();
     }
 
     @Test

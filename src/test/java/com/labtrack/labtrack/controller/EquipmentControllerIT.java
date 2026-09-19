@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.labtrack.labtrack.dto.LoginRequest;
 import com.labtrack.labtrack.dto.LoginResponse;
 import com.labtrack.labtrack.model.Equipment;
+import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
@@ -30,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -109,7 +112,10 @@ class EquipmentControllerIT {
         Equipment equipment = new Equipment();
         equipment.setName("Osciloscópio");
         equipment.setIdentificationPhoto("osciloscopio.jpg");
-        equipment.setCurrentStatus("available");
+        equipment.setCurrentStatus(EquipmentStatus.DISPONIVEL);
+        equipment.setCode("EQP-" + System.nanoTime());
+        equipment.setCategory("Medição");
+        equipment.setLaboratory("Laboratório de Eletrônica");
         equipment.setQuantity(1);
         equipmentRepository.save(equipment);
 
@@ -155,7 +161,7 @@ class EquipmentControllerIT {
         loanItemB.setItemStatus("loaned");
         loanItemRepository.save(loanItemB);
 
-        mockMvc.perform(get("/api/equipments/{id}/history", equipment.getId())
+        mockMvc.perform(get("/api/equipment/{id}/history", equipment.getId())
                         .header("Authorization", "Bearer " + jwtToken)
                         .param("page", "0")
                         .param("size", "2"))
@@ -174,11 +180,14 @@ class EquipmentControllerIT {
         Equipment equipment = new Equipment();
         equipment.setName("Multímetro sem uso");
         equipment.setIdentificationPhoto("multimetro.jpg");
-        equipment.setCurrentStatus("available");
+        equipment.setCurrentStatus(EquipmentStatus.DISPONIVEL);
+        equipment.setCode("EQP-" + System.nanoTime());
+        equipment.setCategory("Medição");
+        equipment.setLaboratory("Laboratório de Eletrônica");
         equipment.setQuantity(1);
         equipmentRepository.save(equipment);
 
-        mockMvc.perform(get("/api/equipments/{id}/history", equipment.getId())
+        mockMvc.perform(get("/api/equipment/{id}/history", equipment.getId())
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0));
@@ -186,7 +195,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns404_WhenEquipmentDoesNotExist() throws Exception {
-        mockMvc.perform(get("/api/equipments/{id}/history", 999999L)
+        mockMvc.perform(get("/api/equipment/{id}/history", 999999L)
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
@@ -194,7 +203,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns400_WhenPageIsNegative() throws Exception {
-        mockMvc.perform(get("/api/equipments/{id}/history", 1L)
+        mockMvc.perform(get("/api/equipment/{id}/history", 1L)
                         .header("Authorization", "Bearer " + jwtToken)
                         .param("page", "-1"))
                 .andExpect(status().isBadRequest())
@@ -203,7 +212,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns400_WhenSizeIsZero() throws Exception {
-        mockMvc.perform(get("/api/equipments/{id}/history", 1L)
+        mockMvc.perform(get("/api/equipment/{id}/history", 1L)
                         .header("Authorization", "Bearer " + jwtToken)
                         .param("size", "0"))
                 .andExpect(status().isBadRequest())
@@ -212,7 +221,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns400_WhenSizeExceedsMax() throws Exception {
-        mockMvc.perform(get("/api/equipments/{id}/history", 1L)
+        mockMvc.perform(get("/api/equipment/{id}/history", 1L)
                         .header("Authorization", "Bearer " + jwtToken)
                         .param("size", "101"))
                 .andExpect(status().isBadRequest())
@@ -221,7 +230,7 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns400_WhenIdIsNotNumeric() throws Exception {
-        mockMvc.perform(get("/api/equipments/{id}/history", "abc")
+        mockMvc.perform(get("/api/equipment/{id}/history", "abc")
                         .header("Authorization", "Bearer " + jwtToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
@@ -229,7 +238,79 @@ class EquipmentControllerIT {
 
     @Test
     void getLoanHistoryReturns401_WhenNoTokenProvided() throws Exception {
-        mockMvc.perform(get("/api/equipments/{id}/history", 1L))
+        mockMvc.perform(get("/api/equipment/{id}/history", 1L))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void createEquipmentReturns201WithFrontendFieldNames() throws Exception {
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newEquipmentBody("EQP-IT-" + System.nanoTime()))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.nome").value("Multímetro Digital"))
+                .andExpect(jsonPath("$.fotoUrl").value("multimetro.jpg"))
+                .andExpect(jsonPath("$.status").value("DISPONIVEL"))
+                .andExpect(jsonPath("$.categoria").value("Medição"))
+                .andExpect(jsonPath("$.laboratorio").value("Laboratório de Eletrônica"))
+                .andExpect(jsonPath("$.qtdTotal").value(3))
+                .andExpect(jsonPath("$.qtdDisponivel").value(3))
+                .andExpect(jsonPath("$.cadastradoEm").isNotEmpty())
+                .andExpect(jsonPath("$.bancada").doesNotExist());
+    }
+
+    @Test
+    void createEquipmentReturns409_WhenCodeAlreadyExists() throws Exception {
+        String code = "EQP-IT-" + System.nanoTime();
+        String body = objectMapper.writeValueAsString(newEquipmentBody(code));
+
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void createEquipmentReturns400_WhenStatusIsNotInEnum() throws Exception {
+        Map<String, Object> body = newEquipmentBody("EQP-IT-" + System.nanoTime());
+        body.put("status", "available");
+
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void createEquipmentReturns400_WhenRequiredFieldsAreMissing() throws Exception {
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    private Map<String, Object> newEquipmentBody(String code) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("nome", "Multímetro Digital");
+        body.put("codigo", code);
+        body.put("fotoUrl", "multimetro.jpg");
+        body.put("categoria", "Medição");
+        body.put("laboratorio", "Laboratório de Eletrônica");
+        body.put("qtdTotal", 3);
+        return body;
     }
 }
