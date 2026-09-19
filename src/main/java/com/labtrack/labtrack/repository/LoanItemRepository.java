@@ -17,4 +17,6 @@ public interface LoanItemRepository extends JpaRepository<LoanItem, Long> {
             "JOIN FETCH l.responsibleProfessor " +
             "WHERE li.equipment.id = :equipmentId")
     List<LoanItem> findByEquipmentId(@Param("equipmentId") Long equipmentId);
+
+    long countByEquipmentIdAndItemStatus(Long equipmentId, String itemStatus);
 }

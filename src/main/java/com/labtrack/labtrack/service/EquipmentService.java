@@ -3,8 +3,10 @@ package com.labtrack.labtrack.service;
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
+import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.model.Equipment;
+import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
@@ -31,6 +33,7 @@ public class EquipmentService {
 
     private static final String EVENT_TYPE_CHECKOUT = "RETIRADA";
     private static final String EVENT_TYPE_RETURN = "DEVOLUCAO";
+    private static final String ITEM_STATUS_LOANED = "loaned";
 
     private final EquipmentRepository equipmentRepository;
     private final LoanItemRepository loanItemRepository;
@@ -40,11 +43,18 @@ public class EquipmentService {
     public EquipmentResponseDTO createEquipment(EquipmentRequestDTO request) {
         log.info("Criando novo equipamento: {}", request.getName());
 
+        if (equipmentRepository.existsByCode(request.getCode())) {
+            throw new DuplicateEquipmentCodeException(request.getCode());
+        }
+
         Equipment equipment = new Equipment();
         equipment.setName(request.getName());
+        equipment.setCode(request.getCode());
         equipment.setIdentificationPhoto(request.getIdentificationPhoto());
-        equipment.setCurrentStatus(request.getCurrentStatus() != null ? request.getCurrentStatus() : "available");
-        equipment.setLocation(request.getLocation());
+        equipment.setCurrentStatus(
+                request.getCurrentStatus() != null ? request.getCurrentStatus() : EquipmentStatus.DISPONIVEL);
+        equipment.setCategory(request.getCategory());
+        equipment.setLaboratory(request.getLaboratory());
         equipment.setQuantity(request.getQuantity());
 
         Equipment savedEquipment = equipmentRepository.save(equipment);
@@ -76,13 +86,20 @@ public class EquipmentService {
     }
 
     private EquipmentResponseDTO mapToResponseDTO(Equipment equipment) {
+        long loanedItems = loanItemRepository
+                .countByEquipmentIdAndItemStatus(equipment.getId(), ITEM_STATUS_LOANED);
+
         return EquipmentResponseDTO.builder()
                 .id(equipment.getId())
                 .name(equipment.getName())
+                .code(equipment.getCode())
                 .identificationPhoto(equipment.getIdentificationPhoto())
                 .currentStatus(equipment.getCurrentStatus())
-                .location(equipment.getLocation())
+                .category(equipment.getCategory())
+                .laboratory(equipment.getLaboratory())
+                .availableQuantity(equipment.getQuantity() - (int) loanedItems)
                 .quantity(equipment.getQuantity())
+                .createdAt(equipment.getCreatedAt())
                 .build();
     }
 

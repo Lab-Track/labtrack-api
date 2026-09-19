@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/api/equipments")
+@RequestMapping("/api/equipment")
 @RequiredArgsConstructor
 @Tag(name = "Equipment", description = "Endpoints for equipment management")
 public class EquipmentController {
@@ -45,7 +45,7 @@ public class EquipmentController {
     public ResponseEntity<EquipmentResponseDTO> createEquipment(
             @Valid @RequestBody EquipmentRequestDTO request) {
 
-        log.info("Request POST /api/equipments - Name: {}", request.getName());
+        log.info("Request POST /api/equipment - Name: {}", request.getName());
 
         EquipmentResponseDTO response = equipmentService.createEquipment(request);
         log.info("Equipment created with ID: {}", response.getId());
@@ -78,7 +78,7 @@ public class EquipmentController {
             @Parameter(description = "Tamanho da página", example = "10")
             int size) {
 
-        log.info("Requisição GET /api/equipments/{}/history - page={}, size={}", id, page, size);
+        log.info("Requisição GET /api/equipment/{}/history - page={}, size={}", id, page, size);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<EquipmentHistoryDTO> history = equipmentService.findLoanHistoryByEquipmentId(id, pageable);
