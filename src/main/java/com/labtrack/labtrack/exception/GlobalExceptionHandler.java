@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -101,6 +102,36 @@ public class GlobalExceptionHandler{
     @ExceptionHandler(EquipmentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEquipmentNotFoundException(EquipmentNotFoundException ex) {
         return notFoundResponse("Equipamento não encontrado", ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateEquipmentCodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEquipmentCodeException(
+            DuplicateEquipmentCodeException ex) {
+        log.warn("Código de equipamento duplicado: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Código de equipamento já cadastrado")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException ex) {
+        log.warn("Corpo da requisição ilegível: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Erro de validação")
+                .message("Corpo da requisição inválido ou com valor não reconhecido (ex.: status)")
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
