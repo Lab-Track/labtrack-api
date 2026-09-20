@@ -3,6 +3,7 @@ package com.labtrack.labtrack.controller;
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
+import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
 import com.labtrack.labtrack.service.EquipmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,6 +22,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
 
 @Slf4j
 @Validated
@@ -87,6 +90,35 @@ public class EquipmentController {
                 history.getNumberOfElements(), page + 1, history.getTotalPages(), id);
 
         return ResponseEntity.ok(history);
+    }
+
+    @Operation(
+            summary = "Alterar status do equipamento (RF17)",
+            description = "Altera manualmente o status de um equipamento (ex.: enviar para manutenção) e " +
+                    "registra a alteração no histórico de status. O status EMPRESTADO é definido pelo " +
+                    "empréstimo e não pode ser informado; equipamentos com empréstimo ativo não podem ter " +
+                    "o status alterado."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Status alterado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Status ausente ou fora do enum"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente"),
+            @ApiResponse(responseCode = "404", description = "Equipamento não encontrado"),
+            @ApiResponse(responseCode = "409", description = "Empréstimo ativo ou status EMPRESTADO informado")
+    })
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<EquipmentResponseDTO> updateEquipmentStatus(
+            @PathVariable
+            @Parameter(description = "ID do equipamento", example = "1")
+            Long id,
+            @Valid @RequestBody EquipmentStatusUpdateRequestDTO request,
+            Principal principal) {
+
+        log.info("Requisição PATCH /api/equipment/{}/status - status={}", id, request.getStatus());
+
+        EquipmentResponseDTO response = equipmentService.updateStatus(id, request, principal.getName());
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(
