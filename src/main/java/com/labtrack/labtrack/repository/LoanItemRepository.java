@@ -19,4 +19,8 @@ public interface LoanItemRepository extends JpaRepository<LoanItem, Long> {
     List<LoanItem> findByEquipmentId(@Param("equipmentId") Long equipmentId);
 
     long countByEquipmentIdAndItemStatus(Long equipmentId, String itemStatus);
+
+    boolean existsByEquipmentId(Long equipmentId);
+
+    boolean existsByEquipmentIdAndItemStatus(Long equipmentId, String itemStatus);
 }

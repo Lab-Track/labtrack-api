@@ -4,6 +4,7 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
+import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.EquipmentStatus;
@@ -13,6 +14,7 @@ import com.labtrack.labtrack.model.LoanReturn;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanReturnRepository;
+import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +40,7 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final LoanItemRepository loanItemRepository;
     private final LoanReturnRepository loanReturnRepository;
+    private final StatusHistoryRepository statusHistoryRepository;
 
     @Transactional
     public EquipmentResponseDTO createEquipment(EquipmentRequestDTO request) {
@@ -61,6 +64,31 @@ public class EquipmentService {
         log.info("Equipamento criado com ID: {}", savedEquipment.getId());
 
         return mapToResponseDTO(savedEquipment);
+    }
+
+    @Transactional
+    public void deleteEquipment(Long equipmentId) {
+        log.info("Excluindo equipamento id: {}", equipmentId);
+
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new EquipmentNotFoundException(equipmentId));
+
+        // O status vale para a linha inteira; os loan_item são a fonte de verdade de empréstimo em aberto.
+        if (equipment.getCurrentStatus() == EquipmentStatus.EMPRESTADO
+                || loanItemRepository.existsByEquipmentIdAndItemStatus(equipmentId, ITEM_STATUS_LOANED)) {
+            throw new EquipmentDeletionNotAllowedException(
+                    "Equipamento com empréstimo ativo não pode ser excluído");
+        }
+
+        if (loanItemRepository.existsByEquipmentId(equipmentId)) {
+            throw new EquipmentDeletionNotAllowedException(
+                    "Equipamento com histórico de empréstimos não pode ser excluído; use o status INATIVO");
+        }
+
+        statusHistoryRepository.deleteByEquipmentId(equipmentId);
+        equipmentRepository.delete(equipment);
+
+        log.info("Equipamento excluído com ID: {}", equipmentId);
     }
 
     @Transactional(readOnly = true)

@@ -4,11 +4,13 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
+import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanReturnRepository;
+import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +40,9 @@ class EquipmentServiceTest {
 
     @Mock
     private LoanReturnRepository loanReturnRepository;
+
+    @Mock
+    private StatusHistoryRepository statusHistoryRepository;
 
     @InjectMocks
     private EquipmentService equipmentService;
@@ -185,6 +190,81 @@ class EquipmentServiceTest {
         // Assert
         assertThat(response.getQuantity()).isEqualTo(3);
         assertThat(response.getAvailableQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldDeleteEquipmentAndItsStatusHistory_WhenNoActiveLoanAndNoLoanHistory() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.existsByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(false);
+        when(loanItemRepository.existsByEquipmentId(1L)).thenReturn(false);
+
+        // Act
+        equipmentService.deleteEquipment(1L);
+
+        // Assert
+        verify(statusHistoryRepository).deleteByEquipmentId(1L);
+        verify(equipmentRepository).delete(equipment);
+    }
+
+    @Test
+    void shouldThrowEquipmentNotFoundException_WhenDeletingUnknownEquipment() {
+        // Arrange
+        when(equipmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.deleteEquipment(999L))
+                .isInstanceOf(EquipmentNotFoundException.class);
+
+        verify(equipmentRepository, never()).delete(any(Equipment.class));
+    }
+
+    @Test
+    void shouldRejectDeletion_WhenStatusIsEmprestado() {
+        // Arrange
+        equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.deleteEquipment(1L))
+                .isInstanceOf(EquipmentDeletionNotAllowedException.class)
+                .hasMessageContaining("empréstimo ativo");
+
+        verifyNothingDeleted();
+    }
+
+    @Test
+    void shouldRejectDeletion_WhenLoanItemIsLoanedEvenIfStatusIsDisponivel() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.existsByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(true);
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.deleteEquipment(1L))
+                .isInstanceOf(EquipmentDeletionNotAllowedException.class)
+                .hasMessageContaining("empréstimo ativo");
+
+        verifyNothingDeleted();
+    }
+
+    @Test
+    void shouldRejectDeletion_WhenEquipmentHasLoanHistory() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.existsByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(false);
+        when(loanItemRepository.existsByEquipmentId(1L)).thenReturn(true);
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.deleteEquipment(1L))
+                .isInstanceOf(EquipmentDeletionNotAllowedException.class)
+                .hasMessageContaining("histórico de empréstimos");
+
+        verifyNothingDeleted();
+    }
+
+    private void verifyNothingDeleted() {
+        verify(statusHistoryRepository, never()).deleteByEquipmentId(anyLong());
+        verify(equipmentRepository, never()).delete(any(Equipment.class));
     }
 
     private EquipmentRequestDTO buildCreateRequest(EquipmentStatus status) {

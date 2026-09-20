@@ -10,12 +10,14 @@ import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
 import com.labtrack.labtrack.model.Professor;
+import com.labtrack.labtrack.model.StatusHistory;
 import com.labtrack.labtrack.model.Student;
 import com.labtrack.labtrack.model.Technician;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanRepository;
 import com.labtrack.labtrack.repository.LoanReturnRepository;
+import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import com.labtrack.labtrack.repository.StudentRepository;
 import com.labtrack.labtrack.repository.TechnicianRepository;
 import jakarta.persistence.EntityManager;
@@ -34,6 +36,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -64,6 +69,9 @@ class EquipmentControllerIT {
 
     @Autowired
     private LoanReturnRepository loanReturnRepository;
+
+    @Autowired
+    private StatusHistoryRepository statusHistoryRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -301,6 +309,134 @@ class EquipmentControllerIT {
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void deleteEquipmentReturns204AndRemovesEquipmentAndItsStatusHistory() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+        saveStatusHistory(equipment);
+        // Contexto limpo, como numa requisição real: o service carrega o equipamento do zero.
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(delete("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isNoContent());
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(equipmentRepository.existsById(equipment.getId())).isFalse();
+        Long remainingHistory = entityManager
+                .createQuery("SELECT COUNT(sh) FROM StatusHistory sh WHERE sh.equipment.id = :id", Long.class)
+                .setParameter("id", equipment.getId())
+                .getSingleResult();
+        assertThat(remainingHistory).isZero();
+    }
+
+    @Test
+    void deleteEquipmentReturns409_WhenStatusIsEmprestado() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.EMPRESTADO);
+
+        mockMvc.perform(delete("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
+
+        assertThat(equipmentRepository.existsById(equipment.getId())).isTrue();
+    }
+
+    @Test
+    void deleteEquipmentReturns409_WhenLoanItemIsLoanedEvenIfStatusIsDisponivel() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+        saveLoanItem(equipment, "loaned", "in_progress");
+
+        mockMvc.perform(delete("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("empréstimo ativo")));
+
+        assertThat(equipmentRepository.existsById(equipment.getId())).isTrue();
+    }
+
+    @Test
+    void deleteEquipmentReturns409_WhenEquipmentHasLoanHistory() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+        saveLoanItem(equipment, "returned", "returned");
+
+        mockMvc.perform(delete("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value(containsString("histórico de empréstimos")));
+
+        assertThat(equipmentRepository.existsById(equipment.getId())).isTrue();
+    }
+
+    @Test
+    void deleteEquipmentReturns404_WhenEquipmentDoesNotExist() throws Exception {
+        mockMvc.perform(delete("/api/equipment/{id}", 999999L)
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void deleteEquipmentReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(delete("/api/equipment/{id}", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private Equipment saveEquipment(EquipmentStatus status) {
+        Equipment equipment = new Equipment();
+        equipment.setName("Equipamento de teste");
+        equipment.setIdentificationPhoto("teste.jpg");
+        equipment.setCurrentStatus(status);
+        equipment.setCode("EQP-IT-" + System.nanoTime());
+        equipment.setCategory("Medição");
+        equipment.setLaboratory("Laboratório de Eletrônica");
+        equipment.setQuantity(1);
+        return equipmentRepository.save(equipment);
+    }
+
+    private void saveStatusHistory(Equipment equipment) {
+        StatusHistory history = new StatusHistory();
+        history.setEquipment(equipment);
+        history.setPreviousStatus("DISPONIVEL");
+        history.setNewStatus("MANUTENCAO");
+        history.setChangeDate(LocalDateTime.now());
+        history.setTechnician(technicianRepository.findByLogin("tecnico.teste").orElseThrow());
+        statusHistoryRepository.save(history);
+    }
+
+    private void saveLoanItem(Equipment equipment, String itemStatus, String loanStatus) {
+        Professor professor = new Professor();
+        professor.setName("Carlos Lima");
+        professor.setEmail("professor." + System.nanoTime() + "@labtrack.local");
+        entityManager.persist(professor);
+
+        Student student = new Student();
+        student.setName("Ana Souza");
+        student.setEmail("aluno." + System.nanoTime() + "@labtrack.local");
+        student.setReliabilityRate(new BigDecimal("100.00"));
+        student.setRegistrationDate(LocalDateTime.now());
+        studentRepository.save(student);
+
+        Loan loan = new Loan();
+        loan.setStudent(student);
+        loan.setResponsibleProfessor(professor);
+        loan.setTechnician(technicianRepository.findByLogin("tecnico.teste").orElseThrow());
+        loan.setCheckoutDate(LocalDateTime.of(2026, 9, 1, 10, 0));
+        loan.setExpectedReturnDate(LocalDateTime.of(2026, 9, 8, 10, 0));
+        loan.setLoanStatus(loanStatus);
+        loanRepository.save(loan);
+
+        LoanItem item = new LoanItem();
+        item.setLoan(loan);
+        item.setEquipment(equipment);
+        item.setCheckoutPhoto("checkout.jpg");
+        item.setCheckoutCondition("GOOD");
+        item.setItemStatus(itemStatus);
+        loanItemRepository.save(item);
     }
 
     private Map<String, Object> newEquipmentBody(String code) {

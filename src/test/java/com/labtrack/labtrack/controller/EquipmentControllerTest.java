@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +54,17 @@ class EquipmentControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getContent()).hasSize(1);
         assertThat(response.getBody().getContent().get(0).getEventType()).isEqualTo("RETIRADA");
+    }
+
+    @Test
+    void shouldReturn204_WhenEquipmentIsDeleted() {
+        // Act
+        ResponseEntity<Void> response = equipmentController.deleteEquipment(1L);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(equipmentService).deleteEquipment(1L);
     }
 
     @Test
