@@ -88,4 +88,28 @@ public class EquipmentController {
 
         return ResponseEntity.ok(history);
     }
+
+    @Operation(
+            summary = "Excluir equipamento",
+            description = "Exclui permanentemente um equipamento sem empréstimo ativo e sem histórico de " +
+                    "empréstimos. Equipamentos com histórico devem ser marcados como INATIVO."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Equipamento excluído com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente"),
+            @ApiResponse(responseCode = "404", description = "Equipamento não encontrado"),
+            @ApiResponse(responseCode = "409", description = "Equipamento com empréstimo ativo ou histórico de empréstimos")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEquipment(
+            @PathVariable
+            @Parameter(description = "ID do equipamento", example = "1")
+            Long id) {
+
+        log.info("Requisição DELETE /api/equipment/{}", id);
+
+        equipmentService.deleteEquipment(id);
+
+        return ResponseEntity.noContent().build();
+    }
 }
