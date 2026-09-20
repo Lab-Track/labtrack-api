@@ -1,6 +1,9 @@
 package com.labtrack.labtrack.controller;
 
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
+import com.labtrack.labtrack.dto.EquipmentResponseDTO;
+import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
+import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.service.EquipmentService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -54,6 +58,31 @@ class EquipmentControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getContent()).hasSize(1);
         assertThat(response.getBody().getContent().get(0).getEventType()).isEqualTo("RETIRADA");
+    }
+
+    @Test
+    void shouldReturn200WithUpdatedEquipment_WhenStatusIsUpdated() {
+        // Arrange
+        EquipmentStatusUpdateRequestDTO request = EquipmentStatusUpdateRequestDTO.builder()
+                .status(EquipmentStatus.MANUTENCAO)
+                .reason("Display com defeito")
+                .build();
+        EquipmentResponseDTO updated = EquipmentResponseDTO.builder()
+                .id(1L)
+                .currentStatus(EquipmentStatus.MANUTENCAO)
+                .build();
+        Principal principal = () -> "tecnico.teste";
+
+        when(equipmentService.updateStatus(1L, request, "tecnico.teste")).thenReturn(updated);
+
+        // Act
+        ResponseEntity<EquipmentResponseDTO> response =
+                equipmentController.updateEquipmentStatus(1L, request, principal);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
     }
 
     @Test

@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -384,6 +385,114 @@ class EquipmentControllerIT {
     void deleteEquipmentReturns401_WhenNoTokenProvided() throws Exception {
         mockMvc.perform(delete("/api/equipment/{id}", 1L))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateStatusReturns200AndRecordsHistoryWithReasonAndTechnician() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(patch("/api/equipment/{id}/status", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MANUTENCAO\",\"motivo\":\"Display com defeito\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(equipment.getId()))
+                .andExpect(jsonPath("$.status").value("MANUTENCAO"))
+                .andExpect(jsonPath("$.qtdDisponivel").value(1));
+
+        StatusHistory history = entityManager
+                .createQuery("SELECT sh FROM StatusHistory sh WHERE sh.equipment.id = :id", StatusHistory.class)
+                .setParameter("id", equipment.getId())
+                .getSingleResult();
+        assertThat(history.getPreviousStatus()).isEqualTo("DISPONIVEL");
+        assertThat(history.getNewStatus()).isEqualTo("MANUTENCAO");
+        assertThat(history.getReason()).isEqualTo("Display com defeito");
+        assertThat(history.getTechnician().getLogin()).isEqualTo("tecnico.teste");
+    }
+
+    @Test
+    void updateStatusReturns400_WhenStatusIsNotInEnum() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(patch("/api/equipment/{id}/status", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"EXPLODIDO\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void updateStatusReturns400_WhenStatusIsMissing() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(patch("/api/equipment/{id}/status", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"sem status\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void updateStatusReturns404_WhenEquipmentDoesNotExist() throws Exception {
+        mockMvc.perform(patch("/api/equipment/{id}/status", 999999L)
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MANUTENCAO\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void updateStatusReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(patch("/api/equipment/{id}/status", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MANUTENCAO\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateStatusReturns409_WhenNewStatusIsEmprestado() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(patch("/api/equipment/{id}/status", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"EMPRESTADO\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("EMPRESTADO")));
+    }
+
+    @Test
+    void updateStatusReturns409_WhenLoanItemIsLoanedEvenIfStatusIsDisponivel() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+        saveLoanItem(equipment, "loaned", "in_progress");
+
+        mockMvc.perform(patch("/api/equipment/{id}/status", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MANUTENCAO\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("empréstimo ativo")));
+    }
+
+    @Test
+    void updateStatusIsIdempotent_WhenStatusIsUnchanged() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.MANUTENCAO);
+
+        mockMvc.perform(patch("/api/equipment/{id}/status", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"MANUTENCAO\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("MANUTENCAO"));
+
+        Long historyCount = entityManager
+                .createQuery("SELECT COUNT(sh) FROM StatusHistory sh WHERE sh.equipment.id = :id", Long.class)
+                .setParameter("id", equipment.getId())
+                .getSingleResult();
+        assertThat(historyCount).isZero();
     }
 
     private Equipment saveEquipment(EquipmentStatus status) {
