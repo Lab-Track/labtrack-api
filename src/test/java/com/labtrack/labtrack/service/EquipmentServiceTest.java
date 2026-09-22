@@ -3,17 +3,21 @@ package com.labtrack.labtrack.service;
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
+import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
 import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
+import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanReturnRepository;
 import com.labtrack.labtrack.repository.StatusHistoryRepository;
+import com.labtrack.labtrack.repository.TechnicianRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,6 +47,9 @@ class EquipmentServiceTest {
 
     @Mock
     private StatusHistoryRepository statusHistoryRepository;
+
+    @Mock
+    private TechnicianRepository technicianRepository;
 
     @InjectMocks
     private EquipmentService equipmentService;
@@ -260,6 +267,112 @@ class EquipmentServiceTest {
                 .hasMessageContaining("histórico de empréstimos");
 
         verifyNothingDeleted();
+    }
+
+    @Test
+    void shouldUpdateStatusAndRecordHistory_WhenChangeIsAllowed() {
+        // Arrange
+        Technician technician = new Technician();
+        technician.setLogin("tecnico.teste");
+        equipment.setQuantity(1);
+        EquipmentStatusUpdateRequestDTO request = buildStatusRequest(EquipmentStatus.MANUTENCAO, "Display com defeito");
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.existsByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(false);
+        when(technicianRepository.findByLogin("tecnico.teste")).thenReturn(Optional.of(technician));
+        when(equipmentRepository.save(equipment)).thenReturn(equipment);
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.updateStatus(1L, request, "tecnico.teste");
+
+        // Assert
+        assertThat(response.getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
+
+        ArgumentCaptor<StatusHistory> captor = ArgumentCaptor.forClass(StatusHistory.class);
+        verify(statusHistoryRepository).save(captor.capture());
+        StatusHistory history = captor.getValue();
+        assertThat(history.getEquipment()).isSameAs(equipment);
+        assertThat(history.getPreviousStatus()).isEqualTo("DISPONIVEL");
+        assertThat(history.getNewStatus()).isEqualTo("MANUTENCAO");
+        assertThat(history.getReason()).isEqualTo("Display com defeito");
+        assertThat(history.getTechnician()).isSameAs(technician);
+        assertThat(history.getChangeDate()).isNotNull();
+    }
+
+    @Test
+    void shouldNotRecordHistory_WhenStatusIsUnchanged() {
+        // Arrange
+        equipment.setQuantity(1);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.updateStatus(
+                1L, buildStatusRequest(EquipmentStatus.DISPONIVEL, null), "tecnico.teste");
+
+        // Assert
+        assertThat(response.getCurrentStatus()).isEqualTo(EquipmentStatus.DISPONIVEL);
+        verify(statusHistoryRepository, never()).save(any(StatusHistory.class));
+        verify(equipmentRepository, never()).save(any(Equipment.class));
+    }
+
+    @Test
+    void shouldThrowEquipmentNotFoundException_WhenUpdatingStatusOfUnknownEquipment() {
+        // Arrange
+        when(equipmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateStatus(
+                999L, buildStatusRequest(EquipmentStatus.MANUTENCAO, null), "tecnico.teste"))
+                .isInstanceOf(EquipmentNotFoundException.class);
+    }
+
+    @Test
+    void shouldRejectStatusChange_WhenNewStatusIsEmprestado() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateStatus(
+                1L, buildStatusRequest(EquipmentStatus.EMPRESTADO, null), "tecnico.teste"))
+                .isInstanceOf(EquipmentStatusChangeNotAllowedException.class)
+                .hasMessageContaining("EMPRESTADO");
+
+        verify(statusHistoryRepository, never()).save(any(StatusHistory.class));
+    }
+
+    @Test
+    void shouldRejectStatusChange_WhenEquipmentStatusIsEmprestado() {
+        // Arrange
+        equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateStatus(
+                1L, buildStatusRequest(EquipmentStatus.DISPONIVEL, null), "tecnico.teste"))
+                .isInstanceOf(EquipmentStatusChangeNotAllowedException.class)
+                .hasMessageContaining("empréstimo ativo");
+
+        verify(statusHistoryRepository, never()).save(any(StatusHistory.class));
+    }
+
+    @Test
+    void shouldRejectStatusChange_WhenLoanItemIsLoanedEvenIfStatusIsDisponivel() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.existsByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(true);
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateStatus(
+                1L, buildStatusRequest(EquipmentStatus.MANUTENCAO, null), "tecnico.teste"))
+                .isInstanceOf(EquipmentStatusChangeNotAllowedException.class)
+                .hasMessageContaining("empréstimo ativo");
+
+        verify(statusHistoryRepository, never()).save(any(StatusHistory.class));
+        verify(equipmentRepository, never()).save(any(Equipment.class));
+    }
+
+    private EquipmentStatusUpdateRequestDTO buildStatusRequest(EquipmentStatus status, String reason) {
+        return EquipmentStatusUpdateRequestDTO.builder().status(status).reason(reason).build();
     }
 
     private void verifyNothingDeleted() {

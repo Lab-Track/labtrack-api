@@ -86,4 +86,27 @@ class EquipmentDtoJsonTest {
         assertThatThrownBy(() -> objectMapper.readValue(body, EquipmentRequestDTO.class))
                 .isInstanceOf(JsonProcessingException.class);
     }
+
+    @Test
+    void shouldDeserializeStatusUpdateRequestWithFrontendFieldNames() throws JsonProcessingException {
+        // Arrange
+        String body = "{\"status\":\"MANUTENCAO\",\"motivo\":\"Display com defeito\"}";
+
+        // Act
+        EquipmentStatusUpdateRequestDTO request = objectMapper.readValue(body, EquipmentStatusUpdateRequestDTO.class);
+
+        // Assert
+        assertThat(request.getStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
+        assertThat(request.getReason()).isEqualTo("Display com defeito");
+    }
+
+    @Test
+    void shouldRejectStatusUpdateRequest_WhenStatusIsNotInEnum() {
+        // Arrange
+        String body = "{\"status\":\"EXPLODIDO\"}";
+
+        // Act & Assert
+        assertThatThrownBy(() -> objectMapper.readValue(body, EquipmentStatusUpdateRequestDTO.class))
+                .isInstanceOf(JsonProcessingException.class);
+    }
 }

@@ -134,6 +134,21 @@ public class GlobalExceptionHandler{
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    @ExceptionHandler(EquipmentStatusChangeNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleEquipmentStatusChangeNotAllowedException(
+            EquipmentStatusChangeNotAllowedException ex) {
+        log.warn("Alteração de status não permitida: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Alteração de status não permitida")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
             HttpMessageNotReadableException ex) {

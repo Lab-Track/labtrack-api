@@ -43,4 +43,7 @@ public class StatusHistory {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "technician_id", nullable = false)
     private Technician technician;
+
+    @Column(name = "reason", length = 500)
+    private String reason;
 }
