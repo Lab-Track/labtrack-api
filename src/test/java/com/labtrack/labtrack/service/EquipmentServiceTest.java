@@ -179,6 +179,55 @@ class EquipmentServiceTest {
     }
 
     @Test
+    void shouldMapProjectToResponseDTO_WhenEquipmentHasProject() {
+        // Arrange
+        Professor projectProfessor = new Professor();
+        projectProfessor.setId(2L);
+        projectProfessor.setName("Marina Alves");
+
+        Project project = new Project();
+        project.setId(5L);
+        project.setName("Sensores IoT");
+        project.setProfessor(projectProfessor);
+
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            saved.setProject(project);
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getProject()).isNotNull();
+        assertThat(response.getProject().getId()).isEqualTo(5L);
+        assertThat(response.getProject().getName()).isEqualTo("Sensores IoT");
+        assertThat(response.getProject().getProfessorName()).isEqualTo("Marina Alves");
+    }
+
+    @Test
+    void shouldReturnNullProject_WhenEquipmentHasNoProject() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getProject()).isNull();
+    }
+
+    @Test
     void shouldSubtractLoanedItemsFromAvailableQuantity() {
         // Arrange
         EquipmentRequestDTO request = buildCreateRequest(null);

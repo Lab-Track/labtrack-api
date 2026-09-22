@@ -4,6 +4,7 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
+import com.labtrack.labtrack.dto.ProjectResponseDTO;
 import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
@@ -13,6 +14,7 @@ import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
+import com.labtrack.labtrack.model.Project;
 import com.labtrack.labtrack.model.StatusHistory;
 import com.labtrack.labtrack.model.Technician;
 import com.labtrack.labtrack.repository.EquipmentRepository;
@@ -182,9 +184,21 @@ public class EquipmentService {
                 .currentStatus(equipment.getCurrentStatus())
                 .category(equipment.getCategory())
                 .laboratory(equipment.getLaboratory())
+                .project(mapProjectToDTO(equipment.getProject()))
                 .availableQuantity(equipment.getQuantity() - (int) loanedItems)
                 .quantity(equipment.getQuantity())
                 .createdAt(equipment.getCreatedAt())
+                .build();
+    }
+
+    private ProjectResponseDTO mapProjectToDTO(Project project) {
+        if (project == null) {
+            return null;
+        }
+        return ProjectResponseDTO.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .professorName(project.getProfessor().getName())
                 .build();
     }
 

@@ -267,6 +267,7 @@ class EquipmentControllerIT {
                 .andExpect(jsonPath("$.qtdTotal").value(3))
                 .andExpect(jsonPath("$.qtdDisponivel").value(3))
                 .andExpect(jsonPath("$.cadastradoEm").isNotEmpty())
+                .andExpect(jsonPath("$.projeto").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.bancada").doesNotExist());
     }
 
