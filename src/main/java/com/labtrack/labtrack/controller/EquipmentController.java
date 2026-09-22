@@ -153,7 +153,9 @@ public class EquipmentController {
             description = "Altera manualmente o status de um equipamento (ex.: enviar para manutenção) e " +
                     "registra a alteração no histórico de status. O status EMPRESTADO é definido pelo " +
                     "empréstimo e não pode ser informado; equipamentos com empréstimo ativo não podem ter " +
-                    "o status alterado."
+                    "o status alterado. DANIFICADO segue a mesma regra de bloqueio de empréstimo que " +
+                    "qualquer status diferente de DISPONIVEL: quando o fluxo de retirada existir, um " +
+                    "equipamento DANIFICADO não poderá ser emprestado."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Status alterado com sucesso"),

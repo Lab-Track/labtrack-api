@@ -3,6 +3,10 @@ package com.labtrack.labtrack.controller;
 import com.labtrack.labtrack.dto.LoginRequest;
 import com.labtrack.labtrack.dto.LoginResponse;
 import com.labtrack.labtrack.security.JwtService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,6 +32,16 @@ public class AuthController {
         this.jwtService = jwtService;
     }
 
+    @Operation(
+            summary = "Autenticar técnico",
+            description = "Autentica um técnico com login e senha e devolve um token JWT " +
+                    "e o instante em que ele expira."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login realizado com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Login ou senha inválidos")
+    })
+    @SecurityRequirements
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
