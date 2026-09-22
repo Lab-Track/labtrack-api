@@ -61,6 +61,56 @@ class EquipmentControllerTest {
     }
 
     @Test
+    void shouldReturn200WithPagedEquipment_WhenListingWithoutFilters() {
+        // Arrange
+        EquipmentResponseDTO item = EquipmentResponseDTO.builder()
+                .id(1L)
+                .currentStatus(EquipmentStatus.DISPONIVEL)
+                .build();
+        Page<EquipmentResponseDTO> page = new PageImpl<>(List.of(item), PageRequest.of(0, 10), 1);
+
+        when(equipmentService.findAll(null, null, PageRequest.of(0, 10))).thenReturn(page);
+
+        // Act
+        ResponseEntity<Page<EquipmentResponseDTO>> response =
+                equipmentController.getEquipment(null, null, 0, 10);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getContent()).hasSize(1);
+    }
+
+    @Test
+    void shouldReturn200WithFilteredEquipment_WhenStatusAndSearchProvided() {
+        // Arrange
+        Page<EquipmentResponseDTO> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(equipmentService.findAll(EquipmentStatus.MANUTENCAO, "osc", PageRequest.of(0, 10)))
+                .thenReturn(page);
+
+        // Act
+        ResponseEntity<Page<EquipmentResponseDTO>> response =
+                equipmentController.getEquipment(EquipmentStatus.MANUTENCAO, "osc", 0, 10);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getContent()).isEmpty();
+    }
+
+    @Test
+    void shouldReturn200WithEquipment_WhenFoundById() {
+        // Arrange
+        EquipmentResponseDTO dto = EquipmentResponseDTO.builder().id(1L).build();
+        when(equipmentService.findById(1L)).thenReturn(dto);
+
+        // Act
+        ResponseEntity<EquipmentResponseDTO> response = equipmentController.getEquipmentById(1L);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getId()).isEqualTo(1L);
+    }
+
+    @Test
     void shouldReturn200WithUpdatedEquipment_WhenStatusIsUpdated() {
         // Arrange
         EquipmentStatusUpdateRequestDTO request = EquipmentStatusUpdateRequestDTO.builder()

@@ -74,6 +74,20 @@ public class EquipmentService {
         return mapToResponseDTO(savedEquipment);
     }
 
+    @Transactional(readOnly = true)
+    public Page<EquipmentResponseDTO> findAll(EquipmentStatus status, String search, Pageable pageable) {
+        log.info("Listando equipamentos - status={}, search={}", status, search);
+        return equipmentRepository.search(status, search, pageable).map(this::mapToResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public EquipmentResponseDTO findById(Long equipmentId) {
+        log.info("Buscando equipamento id: {}", equipmentId);
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new EquipmentNotFoundException(equipmentId));
+        return mapToResponseDTO(equipment);
+    }
+
     @Transactional
     public void deleteEquipment(Long equipmentId) {
         log.info("Excluindo equipamento id: {}", equipmentId);

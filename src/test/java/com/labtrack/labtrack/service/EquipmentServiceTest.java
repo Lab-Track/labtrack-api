@@ -22,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
@@ -246,6 +247,67 @@ class EquipmentServiceTest {
         // Assert
         assertThat(response.getQuantity()).isEqualTo(3);
         assertThat(response.getAvailableQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReturnPagedEquipment_FilteredByStatusAndSearch() {
+        // Arrange
+        equipment.setId(1L);
+        equipment.setQuantity(2);
+        Page<Equipment> page = new PageImpl<>(List.of(equipment), PageRequest.of(0, 10), 1);
+
+        when(equipmentRepository.search(EquipmentStatus.DISPONIVEL, "osc", PageRequest.of(0, 10)))
+                .thenReturn(page);
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        // Act
+        Page<EquipmentResponseDTO> result = equipmentService
+                .findAll(EquipmentStatus.DISPONIVEL, "osc", PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(1L);
+        assertThat(result.getContent().get(0).getName()).isEqualTo("Osciloscópio");
+    }
+
+    @Test
+    void shouldReturnEmptyPage_WhenNoEquipmentMatchesFilters() {
+        // Arrange
+        Page<Equipment> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(equipmentRepository.search(EquipmentStatus.INATIVO, null, PageRequest.of(0, 10)))
+                .thenReturn(page);
+
+        // Act
+        Page<EquipmentResponseDTO> result = equipmentService
+                .findAll(EquipmentStatus.INATIVO, null, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEquipmentById_WhenFound() {
+        // Arrange
+        equipment.setQuantity(2);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.findById(1L);
+
+        // Assert
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getName()).isEqualTo("Osciloscópio");
+    }
+
+    @Test
+    void shouldThrowEquipmentNotFoundException_WhenFindByIdUnknown() {
+        // Arrange
+        when(equipmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.findById(999L))
+                .isInstanceOf(EquipmentNotFoundException.class);
     }
 
     @Test

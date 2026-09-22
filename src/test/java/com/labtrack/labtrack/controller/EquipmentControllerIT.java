@@ -252,6 +252,66 @@ class EquipmentControllerIT {
     }
 
     @Test
+    void getEquipmentReturnsFilteredCatalog_WhenStatusAndSearchProvided() throws Exception {
+        Equipment matching = saveEquipment(EquipmentStatus.DISPONIVEL);
+        matching.setName("Osciloscópio Digital " + System.nanoTime());
+        equipmentRepository.save(matching);
+
+        Equipment wrongStatus = saveEquipment(EquipmentStatus.MANUTENCAO);
+        wrongStatus.setName(matching.getName());
+        equipmentRepository.save(wrongStatus);
+
+        mockMvc.perform(get("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .param("status", "DISPONIVEL")
+                        .param("search", "osciloscópio"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.id == " + matching.getId() + ")]").exists())
+                .andExpect(jsonPath("$.content[?(@.id == " + wrongStatus.getId() + ")]").doesNotExist());
+    }
+
+    @Test
+    void getEquipmentReturns200WithAllEquipment_WhenNoFiltersProvided() throws Exception {
+        saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(get("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void getEquipmentReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(get("/api/equipment"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getEquipmentByIdReturns200WithEquipment_WhenFound() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(get("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(equipment.getId()))
+                .andExpect(jsonPath("$.nome").value("Equipamento de teste"));
+    }
+
+    @Test
+    void getEquipmentByIdReturns404_WhenNotFound() throws Exception {
+        mockMvc.perform(get("/api/equipment/{id}", 999999L)
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void getEquipmentByIdReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(get("/api/equipment/{id}", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void createEquipmentReturns201WithFrontendFieldNames() throws Exception {
         mockMvc.perform(post("/api/equipment")
                         .header("Authorization", "Bearer " + jwtToken)
