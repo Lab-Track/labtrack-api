@@ -526,12 +526,14 @@ class EquipmentServiceTest {
         assertThat(first.getStudentName()).isEqualTo("Bruno Lima");
         assertThat(first.getProfessorName()).isEqualTo("Carlos Lima");
         assertThat(first.getEventDate()).isEqualTo(LocalDateTime.of(2026, 9, 5, 14, 0));
+        assertThat(first.getQuantity()).isEqualTo(1);
 
         EquipmentHistoryDTO second = result.getContent().get(1);
         assertThat(second.getEventType()).isEqualTo("DEVOLUCAO");
         assertThat(second.getLoanId()).isEqualTo(10L);
         assertThat(second.getStudentName()).isEqualTo("Ana Souza");
         assertThat(second.getEventDate()).isEqualTo(LocalDateTime.of(2026, 9, 2, 9, 0));
+        assertThat(second.getQuantity()).isEqualTo(1);
     }
 
     @Test
@@ -550,6 +552,95 @@ class EquipmentServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getEventType()).isEqualTo("RETIRADA");
         assertThat(result.getContent().get(0).getLoanId()).isEqualTo(10L);
+        assertThat(result.getContent().get(0).getQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldGroupMultipleUnitsCheckedOutTogether_IntoOneEventWithQuantity() {
+        // Arrange
+        LoanItem loanItemB2 = new LoanItem();
+        loanItemB2.setId(102L);
+        loanItemB2.setLoan(loanB);
+        loanItemB2.setEquipment(equipment);
+        loanItemB2.setItemStatus("loaned");
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of(loanItemB, loanItemB2));
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of());
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService
+                .findLoanHistoryByEquipmentId(1L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).hasSize(1);
+        EquipmentHistoryDTO event = result.getContent().get(0);
+        assertThat(event.getEventType()).isEqualTo("RETIRADA");
+        assertThat(event.getLoanId()).isEqualTo(11L);
+        assertThat(event.getQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldGroupReturnsOnSameLoanAndDate_IntoOneEventWithQuantity() {
+        // Arrange
+        LoanItem loanItemA2 = new LoanItem();
+        loanItemA2.setId(103L);
+        loanItemA2.setLoan(loanA);
+        loanItemA2.setEquipment(equipment);
+        loanItemA2.setItemStatus("returned");
+
+        LoanReturn loanReturnA2 = new LoanReturn();
+        loanReturnA2.setId(1001L);
+        loanReturnA2.setLoanItem(loanItemA2);
+        loanReturnA2.setReturnDate(loanReturnA.getReturnDate());
+        loanReturnA2.setReturnCondition("GOOD");
+        loanReturnA2.setVerificationStatus("working");
+        loanReturnA2.setOverdue(false);
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of());
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of(loanReturnA, loanReturnA2));
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService
+                .findLoanHistoryByEquipmentId(1L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).hasSize(1);
+        EquipmentHistoryDTO event = result.getContent().get(0);
+        assertThat(event.getEventType()).isEqualTo("DEVOLUCAO");
+        assertThat(event.getLoanId()).isEqualTo(10L);
+        assertThat(event.getQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldNotGroupReturnsOnDifferentDates_EvenIfSameLoan() {
+        // Arrange
+        LoanItem loanItemA2 = new LoanItem();
+        loanItemA2.setId(103L);
+        loanItemA2.setLoan(loanA);
+        loanItemA2.setEquipment(equipment);
+        loanItemA2.setItemStatus("returned");
+
+        LoanReturn loanReturnA2 = new LoanReturn();
+        loanReturnA2.setId(1001L);
+        loanReturnA2.setLoanItem(loanItemA2);
+        loanReturnA2.setReturnDate(loanReturnA.getReturnDate().plusDays(1));
+        loanReturnA2.setReturnCondition("GOOD");
+        loanReturnA2.setVerificationStatus("working");
+        loanReturnA2.setOverdue(false);
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of());
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of(loanReturnA, loanReturnA2));
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService
+                .findLoanHistoryByEquipmentId(1L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).allSatisfy(event -> assertThat(event.getQuantity()).isEqualTo(1));
     }
 
     @Test

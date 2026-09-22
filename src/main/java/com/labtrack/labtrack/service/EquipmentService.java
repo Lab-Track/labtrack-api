@@ -34,6 +34,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -167,11 +169,16 @@ public class EquipmentService {
 
         List<EquipmentHistoryDTO> history = new ArrayList<>();
 
-        loanItemRepository.findByEquipmentId(equipmentId)
-                .forEach(item -> history.add(toCheckoutDTO(item)));
+        loanItemRepository.findByEquipmentId(equipmentId).stream()
+                .collect(Collectors.groupingBy(item -> item.getLoan().getId()))
+                .values()
+                .forEach(items -> history.add(toCheckoutDTO(items)));
 
-        loanReturnRepository.findByEquipmentId(equipmentId)
-                .forEach(loanReturn -> history.add(toReturnDTO(loanReturn)));
+        loanReturnRepository.findByEquipmentId(equipmentId).stream()
+                .collect(Collectors.groupingBy(
+                        lr -> Map.entry(lr.getLoanItem().getLoan().getId(), lr.getReturnDate())))
+                .values()
+                .forEach(returns -> history.add(toReturnDTO(returns)));
 
         history.sort(Comparator.comparing(EquipmentHistoryDTO::getEventDate).reversed());
 
@@ -216,23 +223,32 @@ public class EquipmentService {
                 .build();
     }
 
-    private EquipmentHistoryDTO toCheckoutDTO(LoanItem loanItem) {
-        Loan loan = loanItem.getLoan();
-        return toHistoryDTO(loan, EVENT_TYPE_CHECKOUT, loan.getCheckoutDate());
-    }
-
-    private EquipmentHistoryDTO toReturnDTO(LoanReturn loanReturn) {
-        Loan loan = loanReturn.getLoanItem().getLoan();
-        return toHistoryDTO(loan, EVENT_TYPE_RETURN, loanReturn.getReturnDate());
-    }
-
-    private EquipmentHistoryDTO toHistoryDTO(Loan loan, String eventType, LocalDateTime eventDate) {
+    // Uma retirada agrupa todos os LoanItem do mesmo empréstimo: checkout_date é do Loan,
+    // então todas as unidades retiradas juntas compartilham a mesma data.
+    private EquipmentHistoryDTO toCheckoutDTO(List<LoanItem> items) {
+        Loan loan = items.get(0).getLoan();
         return EquipmentHistoryDTO.builder()
                 .loanId(loan.getId())
-                .eventType(eventType)
-                .eventDate(eventDate)
+                .eventType(EVENT_TYPE_CHECKOUT)
+                .eventDate(loan.getCheckoutDate())
                 .studentName(loan.getStudent().getName())
                 .professorName(loan.getResponsibleProfessor().getName())
+                .quantity(items.size())
+                .build();
+    }
+
+    // Uma devolução agrupa os LoanReturn do mesmo empréstimo com a mesma return_date: unidades
+    // devolvidas em momentos diferentes (devolução parcial) continuam como eventos separados.
+    private EquipmentHistoryDTO toReturnDTO(List<LoanReturn> returns) {
+        LoanReturn first = returns.get(0);
+        Loan loan = first.getLoanItem().getLoan();
+        return EquipmentHistoryDTO.builder()
+                .loanId(loan.getId())
+                .eventType(EVENT_TYPE_RETURN)
+                .eventDate(first.getReturnDate())
+                .studentName(loan.getStudent().getName())
+                .professorName(loan.getResponsibleProfessor().getName())
+                .quantity(returns.size())
                 .build();
     }
 
