@@ -102,12 +102,14 @@ public class EquipmentController {
 
     @Operation(
             summary = "Create a new equipment (RF01, RF08)",
-            description = "Registers a new equipment with name, photo and status description."
+            description = "Registers a new equipment with name, photo and status description. " +
+                    "projetoId is optional; when informed, links the equipment to that project."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Equipment created successfully"),
             @ApiResponse(responseCode = "400", description = "Missing required fields (name or photo)"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token")
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "projetoId informado não corresponde a nenhum projeto")
     })
     @PostMapping
     public ResponseEntity<EquipmentResponseDTO> createEquipment(

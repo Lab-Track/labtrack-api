@@ -49,4 +49,8 @@ public class EquipmentRequestDTO {
     @Min(value = 1, message = "Quantidade deve ser maior ou igual a 1")
     @Schema(description = "Quantidade total de unidades", example = "3")
     private Integer quantity;
+
+    @JsonProperty("projetoId")
+    @Schema(description = "ID do projeto vinculado (opcional)", example = "1")
+    private Long projectId;
 }

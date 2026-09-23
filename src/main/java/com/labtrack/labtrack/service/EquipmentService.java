@@ -73,6 +73,12 @@ public class EquipmentService {
         equipment.setLaboratory(request.getLaboratory());
         equipment.setQuantity(request.getQuantity());
 
+        if (request.getProjectId() != null) {
+            Project project = projectRepository.findById(request.getProjectId())
+                    .orElseThrow(() -> new ProjectNotFoundException(request.getProjectId()));
+            equipment.setProject(project);
+        }
+
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
         savedEquipment.setCode(generateCode(savedEquipment.getId()));

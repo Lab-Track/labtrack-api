@@ -10,6 +10,7 @@ import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
 import com.labtrack.labtrack.model.Professor;
+import com.labtrack.labtrack.model.Project;
 import com.labtrack.labtrack.model.StatusHistory;
 import com.labtrack.labtrack.model.Student;
 import com.labtrack.labtrack.model.Technician;
@@ -428,6 +429,34 @@ class EquipmentControllerIT {
     }
 
     @Test
+    void createEquipmentReturns201WithProjectLinked_WhenProjetoIdProvided() throws Exception {
+        Project project = saveProject();
+        Map<String, Object> body = newEquipmentBody();
+        body.put("projetoId", project.getId());
+
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projeto.id").value(project.getId()))
+                .andExpect(jsonPath("$.projeto.nome").value("Sensores IoT"));
+    }
+
+    @Test
+    void createEquipmentReturns404_WhenProjetoIdDoesNotExist() throws Exception {
+        Map<String, Object> body = newEquipmentBody();
+        body.put("projetoId", 999999);
+
+        mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
     void createEquipmentReturns400_WhenStatusIsNotInEnum() throws Exception {
         Map<String, Object> body = newEquipmentBody();
         body.put("status", "available");
@@ -631,6 +660,20 @@ class EquipmentControllerIT {
                 .setParameter("id", equipment.getId())
                 .getSingleResult();
         assertThat(historyCount).isZero();
+    }
+
+    private Project saveProject() {
+        Professor professor = new Professor();
+        professor.setName("Simone");
+        professor.setEmail("simone." + System.nanoTime() + "@labtrack.local");
+        entityManager.persist(professor);
+
+        Project project = new Project();
+        project.setName("Sensores IoT");
+        project.setProfessor(professor);
+        entityManager.persist(project);
+
+        return project;
     }
 
     private Equipment saveEquipment(EquipmentStatus status) {

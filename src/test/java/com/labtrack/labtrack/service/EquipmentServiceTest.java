@@ -231,6 +231,53 @@ class EquipmentServiceTest {
     }
 
     @Test
+    void shouldLinkProject_WhenRequestHasProjectId() {
+        // Arrange
+        Professor professor = new Professor();
+        professor.setId(2L);
+        professor.setName("Marina Alves");
+
+        Project project = new Project();
+        project.setId(5L);
+        project.setName("Sensores IoT");
+        project.setProfessor(professor);
+
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        request.setProjectId(5L);
+
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(project));
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getProject()).isNotNull();
+        assertThat(response.getProject().getId()).isEqualTo(5L);
+        assertThat(response.getProject().getName()).isEqualTo("Sensores IoT");
+    }
+
+    @Test
+    void shouldThrowProjectNotFoundException_WhenCreatingWithUnknownProjectId() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        request.setProjectId(999L);
+
+        when(projectRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.createEquipment(request))
+                .isInstanceOf(ProjectNotFoundException.class)
+                .hasMessageContaining("999");
+
+        verify(equipmentRepository, never()).save(any(Equipment.class));
+    }
+
+    @Test
     void shouldMapProjectToResponseDTO_WhenEquipmentHasProject() {
         // Arrange
         Professor projectProfessor = new Professor();
