@@ -9,6 +9,7 @@ import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
+import com.labtrack.labtrack.exception.ProjectNotFoundException;
 import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
@@ -20,6 +21,7 @@ import com.labtrack.labtrack.model.Technician;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanReturnRepository;
+import com.labtrack.labtrack.repository.ProjectRepository;
 import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import com.labtrack.labtrack.repository.TechnicianRepository;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +53,7 @@ public class EquipmentService {
     private final LoanReturnRepository loanReturnRepository;
     private final StatusHistoryRepository statusHistoryRepository;
     private final TechnicianRepository technicianRepository;
+    private final ProjectRepository projectRepository;
 
     @Transactional
     public EquipmentResponseDTO createEquipment(EquipmentRequestDTO request) {
@@ -77,9 +80,15 @@ public class EquipmentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<EquipmentResponseDTO> findAll(EquipmentStatus status, String search, Pageable pageable) {
-        log.info("Listando equipamentos - status={}, search={}", status, search);
-        return equipmentRepository.search(status, search, pageable).map(this::mapToResponseDTO);
+    public Page<EquipmentResponseDTO> findAll(
+            EquipmentStatus status, String search, Long projectId, Pageable pageable) {
+        log.info("Listando equipamentos - status={}, search={}, projectId={}", status, search, projectId);
+
+        if (projectId != null && !projectRepository.existsById(projectId)) {
+            throw new ProjectNotFoundException(projectId);
+        }
+
+        return equipmentRepository.search(status, search, projectId, pageable).map(this::mapToResponseDTO);
     }
 
     @Transactional(readOnly = true)

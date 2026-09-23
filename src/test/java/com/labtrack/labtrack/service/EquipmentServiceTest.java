@@ -8,10 +8,12 @@ import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
+import com.labtrack.labtrack.exception.ProjectNotFoundException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanReturnRepository;
+import com.labtrack.labtrack.repository.ProjectRepository;
 import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import com.labtrack.labtrack.repository.TechnicianRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,9 @@ class EquipmentServiceTest {
 
     @Mock
     private TechnicianRepository technicianRepository;
+
+    @Mock
+    private ProjectRepository projectRepository;
 
     @InjectMocks
     private EquipmentService equipmentService;
@@ -256,13 +261,13 @@ class EquipmentServiceTest {
         equipment.setQuantity(2);
         Page<Equipment> page = new PageImpl<>(List.of(equipment), PageRequest.of(0, 10), 1);
 
-        when(equipmentRepository.search(EquipmentStatus.DISPONIVEL, "osc", PageRequest.of(0, 10)))
+        when(equipmentRepository.search(EquipmentStatus.DISPONIVEL, "osc", null, PageRequest.of(0, 10)))
                 .thenReturn(page);
         when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
 
         // Act
         Page<EquipmentResponseDTO> result = equipmentService
-                .findAll(EquipmentStatus.DISPONIVEL, "osc", PageRequest.of(0, 10));
+                .findAll(EquipmentStatus.DISPONIVEL, "osc", null, PageRequest.of(0, 10));
 
         // Assert
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -274,15 +279,48 @@ class EquipmentServiceTest {
     void shouldReturnEmptyPage_WhenNoEquipmentMatchesFilters() {
         // Arrange
         Page<Equipment> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
-        when(equipmentRepository.search(EquipmentStatus.INATIVO, null, PageRequest.of(0, 10)))
+        when(equipmentRepository.search(EquipmentStatus.INATIVO, null, null, PageRequest.of(0, 10)))
                 .thenReturn(page);
 
         // Act
         Page<EquipmentResponseDTO> result = equipmentService
-                .findAll(EquipmentStatus.INATIVO, null, PageRequest.of(0, 10));
+                .findAll(EquipmentStatus.INATIVO, null, null, PageRequest.of(0, 10));
 
         // Assert
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void shouldFilterByProjectId_WhenProjectExists() {
+        // Arrange
+        equipment.setId(1L);
+        equipment.setQuantity(2);
+        Page<Equipment> page = new PageImpl<>(List.of(equipment), PageRequest.of(0, 10), 1);
+
+        when(projectRepository.existsById(5L)).thenReturn(true);
+        when(equipmentRepository.search(null, null, 5L, PageRequest.of(0, 10))).thenReturn(page);
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        // Act
+        Page<EquipmentResponseDTO> result = equipmentService
+                .findAll(null, null, 5L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldThrowProjectNotFoundException_WhenProjectIdDoesNotExist() {
+        // Arrange
+        when(projectRepository.existsById(999L)).thenReturn(false);
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.findAll(null, null, 999L, PageRequest.of(0, 10)))
+                .isInstanceOf(ProjectNotFoundException.class)
+                .hasMessageContaining("999");
+
+        verify(equipmentRepository, never()).search(any(), any(), any(), any());
     }
 
     @Test

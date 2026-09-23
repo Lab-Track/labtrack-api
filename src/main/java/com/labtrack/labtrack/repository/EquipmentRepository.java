@@ -17,15 +17,18 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     @Query(
             value = "SELECT e FROM Equipment e WHERE " +
                     "(:status IS NULL OR e.currentStatus = :status) AND " +
-                    "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
-                    "OR LOWER(e.code) LIKE LOWER(CONCAT('%', :search, '%')))",
+                    "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+                    "OR LOWER(e.code) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) AND " +
+                    "(:projectId IS NULL OR e.project.id = :projectId)",
             countQuery = "SELECT COUNT(e) FROM Equipment e WHERE " +
                     "(:status IS NULL OR e.currentStatus = :status) AND " +
-                    "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
-                    "OR LOWER(e.code) LIKE LOWER(CONCAT('%', :search, '%')))"
+                    "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+                    "OR LOWER(e.code) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) AND " +
+                    "(:projectId IS NULL OR e.project.id = :projectId)"
     )
     Page<Equipment> search(
             @Param("status") EquipmentStatus status,
             @Param("search") String search,
+            @Param("projectId") Long projectId,
             Pageable pageable);
 }

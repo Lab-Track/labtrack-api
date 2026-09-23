@@ -104,6 +104,11 @@ public class GlobalExceptionHandler{
         return notFoundResponse("Equipamento não encontrado", ex.getMessage());
     }
 
+    @ExceptionHandler(ProjectNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProjectNotFoundException(ProjectNotFoundException ex) {
+        return notFoundResponse("Projeto não encontrado", ex.getMessage());
+    }
+
     @ExceptionHandler(DuplicateEquipmentCodeException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateEquipmentCodeException(
             DuplicateEquipmentCodeException ex) {

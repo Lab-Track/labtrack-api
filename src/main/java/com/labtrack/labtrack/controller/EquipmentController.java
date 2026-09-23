@@ -38,12 +38,13 @@ public class EquipmentController {
 
     @Operation(
             summary = "Listar equipamentos (catálogo)",
-            description = "Lista os equipamentos de forma paginada, com filtros opcionais por status " +
-                    "e por busca (nome ou código, case-insensitive)."
+            description = "Lista os equipamentos de forma paginada, com filtros opcionais por status, " +
+                    "por busca (nome ou código, case-insensitive) e por projeto vinculado."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Catálogo retornado com sucesso"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente")
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente"),
+            @ApiResponse(responseCode = "404", description = "Projeto informado no filtro não encontrado")
     })
     @GetMapping
     public ResponseEntity<Page<EquipmentResponseDTO>> getEquipment(
@@ -53,6 +54,9 @@ public class EquipmentController {
             @RequestParam(required = false)
             @Parameter(description = "Busca por nome ou código", example = "osciloscópio")
             String search,
+            @RequestParam(required = false)
+            @Parameter(description = "Filtro por ID do projeto vinculado", example = "1")
+            Long projectId,
             @RequestParam(defaultValue = "0")
             @Min(value = 0, message = "Número da página não pode ser negativo")
             @Parameter(description = "Número da página (0-based)", example = "0")
@@ -63,11 +67,11 @@ public class EquipmentController {
             @Parameter(description = "Tamanho da página", example = "10")
             int size) {
 
-        log.info("Requisição GET /api/equipment - status={}, search={}, page={}, size={}",
-                status, search, page, size);
+        log.info("Requisição GET /api/equipment - status={}, search={}, projectId={}, page={}, size={}",
+                status, search, projectId, page, size);
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<EquipmentResponseDTO> result = equipmentService.findAll(status, search, pageable);
+        Page<EquipmentResponseDTO> result = equipmentService.findAll(status, search, projectId, pageable);
 
         return ResponseEntity.ok(result);
     }
