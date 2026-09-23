@@ -29,4 +29,8 @@ public class EquipmentHistoryDTO {
 
     @Schema(description = "Nome do professor responsável pelo empréstimo", example = "Prof. Maria Souza")
     private String professorName;
+
+    @Schema(description = "Quantidade de unidades cobertas por este evento (mesmo empréstimo, " +
+            "mesmo tipo de evento e mesma data)", example = "2")
+    private Integer quantity;
 }

@@ -44,6 +44,10 @@ public class EquipmentResponseDTO {
     @Schema(description = "Laboratório onde o equipamento fica", example = "Laboratório de Eletrônica")
     private String laboratory;
 
+    @JsonProperty("projeto")
+    @Schema(description = "Projeto ao qual o equipamento está vinculado, se houver")
+    private ProjectResponseDTO project;
+
     @JsonProperty("qtdDisponivel")
     @Schema(description = "Unidades disponíveis: total menos os itens de empréstimo ainda emprestados", example = "2")
     private Integer availableQuantity;

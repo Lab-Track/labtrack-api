@@ -4,6 +4,7 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
+import com.labtrack.labtrack.dto.ProjectResponseDTO;
 import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
@@ -13,6 +14,7 @@ import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
 import com.labtrack.labtrack.model.LoanReturn;
+import com.labtrack.labtrack.model.Project;
 import com.labtrack.labtrack.model.StatusHistory;
 import com.labtrack.labtrack.model.Technician;
 import com.labtrack.labtrack.repository.EquipmentRepository;
@@ -32,6 +34,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -70,6 +74,20 @@ public class EquipmentService {
         log.info("Equipamento criado com ID: {}", savedEquipment.getId());
 
         return mapToResponseDTO(savedEquipment);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EquipmentResponseDTO> findAll(EquipmentStatus status, String search, Pageable pageable) {
+        log.info("Listando equipamentos - status={}, search={}", status, search);
+        return equipmentRepository.search(status, search, pageable).map(this::mapToResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public EquipmentResponseDTO findById(Long equipmentId) {
+        log.info("Buscando equipamento id: {}", equipmentId);
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new EquipmentNotFoundException(equipmentId));
+        return mapToResponseDTO(equipment);
     }
 
     @Transactional
@@ -151,11 +169,16 @@ public class EquipmentService {
 
         List<EquipmentHistoryDTO> history = new ArrayList<>();
 
-        loanItemRepository.findByEquipmentId(equipmentId)
-                .forEach(item -> history.add(toCheckoutDTO(item)));
+        loanItemRepository.findByEquipmentId(equipmentId).stream()
+                .collect(Collectors.groupingBy(item -> item.getLoan().getId()))
+                .values()
+                .forEach(items -> history.add(toCheckoutDTO(items)));
 
-        loanReturnRepository.findByEquipmentId(equipmentId)
-                .forEach(loanReturn -> history.add(toReturnDTO(loanReturn)));
+        loanReturnRepository.findByEquipmentId(equipmentId).stream()
+                .collect(Collectors.groupingBy(
+                        lr -> Map.entry(lr.getLoanItem().getLoan().getId(), lr.getReturnDate())))
+                .values()
+                .forEach(returns -> history.add(toReturnDTO(returns)));
 
         history.sort(Comparator.comparing(EquipmentHistoryDTO::getEventDate).reversed());
 
@@ -182,29 +205,50 @@ public class EquipmentService {
                 .currentStatus(equipment.getCurrentStatus())
                 .category(equipment.getCategory())
                 .laboratory(equipment.getLaboratory())
+                .project(mapProjectToDTO(equipment.getProject()))
                 .availableQuantity(equipment.getQuantity() - (int) loanedItems)
                 .quantity(equipment.getQuantity())
                 .createdAt(equipment.getCreatedAt())
                 .build();
     }
 
-    private EquipmentHistoryDTO toCheckoutDTO(LoanItem loanItem) {
-        Loan loan = loanItem.getLoan();
-        return toHistoryDTO(loan, EVENT_TYPE_CHECKOUT, loan.getCheckoutDate());
+    private ProjectResponseDTO mapProjectToDTO(Project project) {
+        if (project == null) {
+            return null;
+        }
+        return ProjectResponseDTO.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .professorName(project.getProfessor().getName())
+                .build();
     }
 
-    private EquipmentHistoryDTO toReturnDTO(LoanReturn loanReturn) {
-        Loan loan = loanReturn.getLoanItem().getLoan();
-        return toHistoryDTO(loan, EVENT_TYPE_RETURN, loanReturn.getReturnDate());
-    }
-
-    private EquipmentHistoryDTO toHistoryDTO(Loan loan, String eventType, LocalDateTime eventDate) {
+    // Uma retirada agrupa todos os LoanItem do mesmo empréstimo: checkout_date é do Loan,
+    // então todas as unidades retiradas juntas compartilham a mesma data.
+    private EquipmentHistoryDTO toCheckoutDTO(List<LoanItem> items) {
+        Loan loan = items.get(0).getLoan();
         return EquipmentHistoryDTO.builder()
                 .loanId(loan.getId())
-                .eventType(eventType)
-                .eventDate(eventDate)
+                .eventType(EVENT_TYPE_CHECKOUT)
+                .eventDate(loan.getCheckoutDate())
                 .studentName(loan.getStudent().getName())
                 .professorName(loan.getResponsibleProfessor().getName())
+                .quantity(items.size())
+                .build();
+    }
+
+    // Uma devolução agrupa os LoanReturn do mesmo empréstimo com a mesma return_date: unidades
+    // devolvidas em momentos diferentes (devolução parcial) continuam como eventos separados.
+    private EquipmentHistoryDTO toReturnDTO(List<LoanReturn> returns) {
+        LoanReturn first = returns.get(0);
+        Loan loan = first.getLoanItem().getLoan();
+        return EquipmentHistoryDTO.builder()
+                .loanId(loan.getId())
+                .eventType(EVENT_TYPE_RETURN)
+                .eventDate(first.getReturnDate())
+                .studentName(loan.getStudent().getName())
+                .professorName(loan.getResponsibleProfessor().getName())
+                .quantity(returns.size())
                 .build();
     }
 

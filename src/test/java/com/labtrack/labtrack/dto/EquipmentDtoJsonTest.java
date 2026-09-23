@@ -46,10 +46,45 @@ class EquipmentDtoJsonTest {
         json.fieldNames().forEachRemaining(fieldNames::add);
         assertThat(fieldNames).containsExactlyInAnyOrder(
                 "id", "nome", "codigo", "fotoUrl", "status", "categoria",
-                "laboratorio", "qtdDisponivel", "qtdTotal", "cadastradoEm");
+                "laboratorio", "projeto", "qtdDisponivel", "qtdTotal", "cadastradoEm");
         assertThat(json.get("status").asText()).isEqualTo("EMPRESTADO");
         assertThat(json.get("qtdDisponivel").asInt()).isEqualTo(2);
         assertThat(json.get("qtdTotal").asInt()).isEqualTo(3);
+    }
+
+    @Test
+    void shouldSerializeProjectWithFrontendFieldNames_WhenEquipmentHasProject() {
+        // Arrange
+        ProjectResponseDTO project = ProjectResponseDTO.builder()
+                .id(5L)
+                .name("Sensores IoT")
+                .professorName("Carlos Lima")
+                .build();
+        EquipmentResponseDTO response = EquipmentResponseDTO.builder()
+                .id(1L)
+                .project(project)
+                .build();
+
+        // Act
+        JsonNode json = objectMapper.valueToTree(response);
+
+        // Assert
+        JsonNode projeto = json.get("projeto");
+        assertThat(projeto.get("id").asLong()).isEqualTo(5L);
+        assertThat(projeto.get("nome").asText()).isEqualTo("Sensores IoT");
+        assertThat(projeto.get("professorResponsavel").asText()).isEqualTo("Carlos Lima");
+    }
+
+    @Test
+    void shouldSerializeNullProject_WhenEquipmentHasNoProject() {
+        // Arrange
+        EquipmentResponseDTO response = EquipmentResponseDTO.builder().id(1L).build();
+
+        // Act
+        JsonNode json = objectMapper.valueToTree(response);
+
+        // Assert
+        assertThat(json.get("projeto").isNull()).isTrue();
     }
 
     @Test

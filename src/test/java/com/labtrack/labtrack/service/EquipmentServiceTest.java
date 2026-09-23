@@ -22,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
@@ -179,6 +180,55 @@ class EquipmentServiceTest {
     }
 
     @Test
+    void shouldMapProjectToResponseDTO_WhenEquipmentHasProject() {
+        // Arrange
+        Professor projectProfessor = new Professor();
+        projectProfessor.setId(2L);
+        projectProfessor.setName("Marina Alves");
+
+        Project project = new Project();
+        project.setId(5L);
+        project.setName("Sensores IoT");
+        project.setProfessor(projectProfessor);
+
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            saved.setProject(project);
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getProject()).isNotNull();
+        assertThat(response.getProject().getId()).isEqualTo(5L);
+        assertThat(response.getProject().getName()).isEqualTo("Sensores IoT");
+        assertThat(response.getProject().getProfessorName()).isEqualTo("Marina Alves");
+    }
+
+    @Test
+    void shouldReturnNullProject_WhenEquipmentHasNoProject() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getProject()).isNull();
+    }
+
+    @Test
     void shouldSubtractLoanedItemsFromAvailableQuantity() {
         // Arrange
         EquipmentRequestDTO request = buildCreateRequest(null);
@@ -197,6 +247,67 @@ class EquipmentServiceTest {
         // Assert
         assertThat(response.getQuantity()).isEqualTo(3);
         assertThat(response.getAvailableQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReturnPagedEquipment_FilteredByStatusAndSearch() {
+        // Arrange
+        equipment.setId(1L);
+        equipment.setQuantity(2);
+        Page<Equipment> page = new PageImpl<>(List.of(equipment), PageRequest.of(0, 10), 1);
+
+        when(equipmentRepository.search(EquipmentStatus.DISPONIVEL, "osc", PageRequest.of(0, 10)))
+                .thenReturn(page);
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        // Act
+        Page<EquipmentResponseDTO> result = equipmentService
+                .findAll(EquipmentStatus.DISPONIVEL, "osc", PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(1L);
+        assertThat(result.getContent().get(0).getName()).isEqualTo("Osciloscópio");
+    }
+
+    @Test
+    void shouldReturnEmptyPage_WhenNoEquipmentMatchesFilters() {
+        // Arrange
+        Page<Equipment> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(equipmentRepository.search(EquipmentStatus.INATIVO, null, PageRequest.of(0, 10)))
+                .thenReturn(page);
+
+        // Act
+        Page<EquipmentResponseDTO> result = equipmentService
+                .findAll(EquipmentStatus.INATIVO, null, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEquipmentById_WhenFound() {
+        // Arrange
+        equipment.setQuantity(2);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.findById(1L);
+
+        // Assert
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getName()).isEqualTo("Osciloscópio");
+    }
+
+    @Test
+    void shouldThrowEquipmentNotFoundException_WhenFindByIdUnknown() {
+        // Arrange
+        when(equipmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.findById(999L))
+                .isInstanceOf(EquipmentNotFoundException.class);
     }
 
     @Test
@@ -415,12 +526,14 @@ class EquipmentServiceTest {
         assertThat(first.getStudentName()).isEqualTo("Bruno Lima");
         assertThat(first.getProfessorName()).isEqualTo("Carlos Lima");
         assertThat(first.getEventDate()).isEqualTo(LocalDateTime.of(2026, 9, 5, 14, 0));
+        assertThat(first.getQuantity()).isEqualTo(1);
 
         EquipmentHistoryDTO second = result.getContent().get(1);
         assertThat(second.getEventType()).isEqualTo("DEVOLUCAO");
         assertThat(second.getLoanId()).isEqualTo(10L);
         assertThat(second.getStudentName()).isEqualTo("Ana Souza");
         assertThat(second.getEventDate()).isEqualTo(LocalDateTime.of(2026, 9, 2, 9, 0));
+        assertThat(second.getQuantity()).isEqualTo(1);
     }
 
     @Test
@@ -439,6 +552,95 @@ class EquipmentServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getEventType()).isEqualTo("RETIRADA");
         assertThat(result.getContent().get(0).getLoanId()).isEqualTo(10L);
+        assertThat(result.getContent().get(0).getQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldGroupMultipleUnitsCheckedOutTogether_IntoOneEventWithQuantity() {
+        // Arrange
+        LoanItem loanItemB2 = new LoanItem();
+        loanItemB2.setId(102L);
+        loanItemB2.setLoan(loanB);
+        loanItemB2.setEquipment(equipment);
+        loanItemB2.setItemStatus("loaned");
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of(loanItemB, loanItemB2));
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of());
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService
+                .findLoanHistoryByEquipmentId(1L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).hasSize(1);
+        EquipmentHistoryDTO event = result.getContent().get(0);
+        assertThat(event.getEventType()).isEqualTo("RETIRADA");
+        assertThat(event.getLoanId()).isEqualTo(11L);
+        assertThat(event.getQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldGroupReturnsOnSameLoanAndDate_IntoOneEventWithQuantity() {
+        // Arrange
+        LoanItem loanItemA2 = new LoanItem();
+        loanItemA2.setId(103L);
+        loanItemA2.setLoan(loanA);
+        loanItemA2.setEquipment(equipment);
+        loanItemA2.setItemStatus("returned");
+
+        LoanReturn loanReturnA2 = new LoanReturn();
+        loanReturnA2.setId(1001L);
+        loanReturnA2.setLoanItem(loanItemA2);
+        loanReturnA2.setReturnDate(loanReturnA.getReturnDate());
+        loanReturnA2.setReturnCondition("GOOD");
+        loanReturnA2.setVerificationStatus("working");
+        loanReturnA2.setOverdue(false);
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of());
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of(loanReturnA, loanReturnA2));
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService
+                .findLoanHistoryByEquipmentId(1L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).hasSize(1);
+        EquipmentHistoryDTO event = result.getContent().get(0);
+        assertThat(event.getEventType()).isEqualTo("DEVOLUCAO");
+        assertThat(event.getLoanId()).isEqualTo(10L);
+        assertThat(event.getQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldNotGroupReturnsOnDifferentDates_EvenIfSameLoan() {
+        // Arrange
+        LoanItem loanItemA2 = new LoanItem();
+        loanItemA2.setId(103L);
+        loanItemA2.setLoan(loanA);
+        loanItemA2.setEquipment(equipment);
+        loanItemA2.setItemStatus("returned");
+
+        LoanReturn loanReturnA2 = new LoanReturn();
+        loanReturnA2.setId(1001L);
+        loanReturnA2.setLoanItem(loanItemA2);
+        loanReturnA2.setReturnDate(loanReturnA.getReturnDate().plusDays(1));
+        loanReturnA2.setReturnCondition("GOOD");
+        loanReturnA2.setVerificationStatus("working");
+        loanReturnA2.setOverdue(false);
+
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.findByEquipmentId(1L)).thenReturn(List.of());
+        when(loanReturnRepository.findByEquipmentId(1L)).thenReturn(List.of(loanReturnA, loanReturnA2));
+
+        // Act
+        Page<EquipmentHistoryDTO> result = equipmentService
+                .findLoanHistoryByEquipmentId(1L, PageRequest.of(0, 10));
+
+        // Assert
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).allSatisfy(event -> assertThat(event.getQuantity()).isEqualTo(1));
     }
 
     @Test

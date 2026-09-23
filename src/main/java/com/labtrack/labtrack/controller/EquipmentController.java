@@ -4,6 +4,7 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
+import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.service.EquipmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,6 +35,61 @@ import java.security.Principal;
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
+
+    @Operation(
+            summary = "Listar equipamentos (catálogo)",
+            description = "Lista os equipamentos de forma paginada, com filtros opcionais por status " +
+                    "e por busca (nome ou código, case-insensitive)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Catálogo retornado com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente")
+    })
+    @GetMapping
+    public ResponseEntity<Page<EquipmentResponseDTO>> getEquipment(
+            @RequestParam(required = false)
+            @Parameter(description = "Filtro por status", example = "DISPONIVEL")
+            EquipmentStatus status,
+            @RequestParam(required = false)
+            @Parameter(description = "Busca por nome ou código", example = "osciloscópio")
+            String search,
+            @RequestParam(defaultValue = "0")
+            @Min(value = 0, message = "Número da página não pode ser negativo")
+            @Parameter(description = "Número da página (0-based)", example = "0")
+            int page,
+            @RequestParam(defaultValue = "10")
+            @Min(value = 1, message = "Tamanho da página deve ser maior ou igual a 1")
+            @Max(value = 100, message = "Tamanho da página não pode ser maior que 100")
+            @Parameter(description = "Tamanho da página", example = "10")
+            int size) {
+
+        log.info("Requisição GET /api/equipment - status={}, search={}, page={}, size={}",
+                status, search, page, size);
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<EquipmentResponseDTO> result = equipmentService.findAll(status, search, pageable);
+
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(
+            summary = "Detalhar equipamento",
+            description = "Retorna os dados de um equipamento pelo ID."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Equipamento retornado com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente"),
+            @ApiResponse(responseCode = "404", description = "Equipamento não encontrado")
+    })
+    @GetMapping("/{id}")
+    public ResponseEntity<EquipmentResponseDTO> getEquipmentById(
+            @PathVariable
+            @Parameter(description = "ID do equipamento", example = "1")
+            Long id) {
+
+        log.info("Requisição GET /api/equipment/{}", id);
+        return ResponseEntity.ok(equipmentService.findById(id));
+    }
 
     @Operation(
             summary = "Create a new equipment (RF01, RF08)",
@@ -97,7 +153,9 @@ public class EquipmentController {
             description = "Altera manualmente o status de um equipamento (ex.: enviar para manutenção) e " +
                     "registra a alteração no histórico de status. O status EMPRESTADO é definido pelo " +
                     "empréstimo e não pode ser informado; equipamentos com empréstimo ativo não podem ter " +
-                    "o status alterado."
+                    "o status alterado. DANIFICADO segue a mesma regra de bloqueio de empréstimo que " +
+                    "qualquer status diferente de DISPONIVEL: quando o fluxo de retirada existir, um " +
+                    "equipamento DANIFICADO não poderá ser emprestado."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Status alterado com sucesso"),

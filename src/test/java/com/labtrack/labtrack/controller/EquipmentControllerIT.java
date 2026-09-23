@@ -185,6 +185,63 @@ class EquipmentControllerIT {
     }
 
     @Test
+    void getLoanHistoryGroupsMultipleUnitsOfSameCheckout_WithQuantity() throws Exception {
+        Professor professor = new Professor();
+        professor.setName("Carlos Lima");
+        professor.setEmail("professor." + System.nanoTime() + "@labtrack.local");
+        entityManager.persist(professor);
+
+        Student student = new Student();
+        student.setName("Ana Souza");
+        student.setEmail("aluno." + System.nanoTime() + "@labtrack.local");
+        student.setReliabilityRate(new BigDecimal("100.00"));
+        student.setRegistrationDate(LocalDateTime.now());
+        studentRepository.save(student);
+
+        Equipment equipment = new Equipment();
+        equipment.setName("Multímetro em par");
+        equipment.setIdentificationPhoto("multimetro.jpg");
+        equipment.setCurrentStatus(EquipmentStatus.DISPONIVEL);
+        equipment.setCode("EQP-" + System.nanoTime());
+        equipment.setCategory("Medição");
+        equipment.setLaboratory("Laboratório de Eletrônica");
+        equipment.setQuantity(2);
+        equipmentRepository.save(equipment);
+
+        Loan loan = new Loan();
+        loan.setStudent(student);
+        loan.setResponsibleProfessor(professor);
+        loan.setTechnician(technicianRepository.findByLogin("tecnico.teste").orElseThrow());
+        loan.setCheckoutDate(LocalDateTime.of(2026, 9, 10, 9, 0));
+        loan.setExpectedReturnDate(LocalDateTime.of(2026, 9, 17, 9, 0));
+        loan.setLoanStatus("in_progress");
+        loanRepository.save(loan);
+
+        LoanItem itemOne = new LoanItem();
+        itemOne.setLoan(loan);
+        itemOne.setEquipment(equipment);
+        itemOne.setCheckoutPhoto("checkout_1.jpg");
+        itemOne.setCheckoutCondition("GOOD");
+        itemOne.setItemStatus("loaned");
+        loanItemRepository.save(itemOne);
+
+        LoanItem itemTwo = new LoanItem();
+        itemTwo.setLoan(loan);
+        itemTwo.setEquipment(equipment);
+        itemTwo.setCheckoutPhoto("checkout_2.jpg");
+        itemTwo.setCheckoutCondition("GOOD");
+        itemTwo.setItemStatus("loaned");
+        loanItemRepository.save(itemTwo);
+
+        mockMvc.perform(get("/api/equipment/{id}/history", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].eventType").value("RETIRADA"))
+                .andExpect(jsonPath("$.content[0].quantity").value(2));
+    }
+
+    @Test
     void getLoanHistoryReturns200WithEmptyContent_WhenEquipmentHasNoLoans() throws Exception {
         Equipment equipment = new Equipment();
         equipment.setName("Multímetro sem uso");
@@ -252,6 +309,66 @@ class EquipmentControllerIT {
     }
 
     @Test
+    void getEquipmentReturnsFilteredCatalog_WhenStatusAndSearchProvided() throws Exception {
+        Equipment matching = saveEquipment(EquipmentStatus.DISPONIVEL);
+        matching.setName("Osciloscópio Digital " + System.nanoTime());
+        equipmentRepository.save(matching);
+
+        Equipment wrongStatus = saveEquipment(EquipmentStatus.MANUTENCAO);
+        wrongStatus.setName(matching.getName());
+        equipmentRepository.save(wrongStatus);
+
+        mockMvc.perform(get("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .param("status", "DISPONIVEL")
+                        .param("search", "osciloscópio"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.id == " + matching.getId() + ")]").exists())
+                .andExpect(jsonPath("$.content[?(@.id == " + wrongStatus.getId() + ")]").doesNotExist());
+    }
+
+    @Test
+    void getEquipmentReturns200WithAllEquipment_WhenNoFiltersProvided() throws Exception {
+        saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(get("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void getEquipmentReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(get("/api/equipment"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getEquipmentByIdReturns200WithEquipment_WhenFound() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(get("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(equipment.getId()))
+                .andExpect(jsonPath("$.nome").value("Equipamento de teste"));
+    }
+
+    @Test
+    void getEquipmentByIdReturns404_WhenNotFound() throws Exception {
+        mockMvc.perform(get("/api/equipment/{id}", 999999L)
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void getEquipmentByIdReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(get("/api/equipment/{id}", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void createEquipmentReturns201WithFrontendFieldNames() throws Exception {
         mockMvc.perform(post("/api/equipment")
                         .header("Authorization", "Bearer " + jwtToken)
@@ -267,6 +384,7 @@ class EquipmentControllerIT {
                 .andExpect(jsonPath("$.qtdTotal").value(3))
                 .andExpect(jsonPath("$.qtdDisponivel").value(3))
                 .andExpect(jsonPath("$.cadastradoEm").isNotEmpty())
+                .andExpect(jsonPath("$.projeto").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.bancada").doesNotExist());
     }
 
