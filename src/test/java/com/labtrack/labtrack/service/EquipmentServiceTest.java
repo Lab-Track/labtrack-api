@@ -4,7 +4,6 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
-import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
@@ -133,7 +132,6 @@ class EquipmentServiceTest {
         // Arrange
         EquipmentRequestDTO request = buildCreateRequest(EquipmentStatus.MANUTENCAO);
 
-        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
         when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
             Equipment saved = invocation.getArgument(0);
             saved.setId(1L);
@@ -161,8 +159,11 @@ class EquipmentServiceTest {
         // Arrange
         EquipmentRequestDTO request = buildCreateRequest(null);
 
-        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
-        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
 
         // Act
         EquipmentResponseDTO response = equipmentService.createEquipment(request);
@@ -172,16 +173,61 @@ class EquipmentServiceTest {
     }
 
     @Test
-    void shouldThrowDuplicateEquipmentCodeException_WhenCodeAlreadyExists() {
+    void shouldDefaultCategoryToSemCategoria_WhenRequestHasNoCategory() {
         // Arrange
-        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(true);
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        request.setCategory(null);
 
-        // Act & Assert
-        assertThatThrownBy(() -> equipmentService.createEquipment(buildCreateRequest(null)))
-                .isInstanceOf(DuplicateEquipmentCodeException.class)
-                .hasMessageContaining("EQP-0001");
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
 
-        verify(equipmentRepository, never()).save(any(Equipment.class));
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getCategory()).isEqualTo("Sem categoria");
+    }
+
+    @Test
+    void shouldDefaultCategoryToSemCategoria_WhenRequestHasBlankCategory() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        request.setCategory("   ");
+
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getCategory()).isEqualTo("Sem categoria");
+    }
+
+    @Test
+    void shouldGenerateCodeFromGeneratedId_WhenCreatingEquipment() {
+        // Arrange
+        EquipmentRequestDTO request = buildCreateRequest(null);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
+            Equipment saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(42L);
+            }
+            return saved;
+        });
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.createEquipment(request);
+
+        // Assert
+        assertThat(response.getCode()).isEqualTo("EQP-0042");
+        verify(equipmentRepository, times(2)).save(any(Equipment.class));
     }
 
     @Test
@@ -197,7 +243,6 @@ class EquipmentServiceTest {
         project.setProfessor(projectProfessor);
 
         EquipmentRequestDTO request = buildCreateRequest(null);
-        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
         when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
             Equipment saved = invocation.getArgument(0);
             saved.setId(1L);
@@ -219,7 +264,6 @@ class EquipmentServiceTest {
     void shouldReturnNullProject_WhenEquipmentHasNoProject() {
         // Arrange
         EquipmentRequestDTO request = buildCreateRequest(null);
-        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
         when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
             Equipment saved = invocation.getArgument(0);
             saved.setId(1L);
@@ -238,7 +282,6 @@ class EquipmentServiceTest {
         // Arrange
         EquipmentRequestDTO request = buildCreateRequest(null);
 
-        when(equipmentRepository.existsByCode("EQP-0001")).thenReturn(false);
         when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> {
             Equipment saved = invocation.getArgument(0);
             saved.setId(7L);
@@ -532,7 +575,6 @@ class EquipmentServiceTest {
     private EquipmentRequestDTO buildCreateRequest(EquipmentStatus status) {
         return EquipmentRequestDTO.builder()
                 .name("Multímetro Digital")
-                .code("EQP-0001")
                 .identificationPhoto("foto.jpg")
                 .currentStatus(status)
                 .category("Medição")

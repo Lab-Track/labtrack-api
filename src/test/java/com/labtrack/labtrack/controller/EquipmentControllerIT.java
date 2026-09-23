@@ -29,6 +29,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -373,10 +374,11 @@ class EquipmentControllerIT {
         mockMvc.perform(post("/api/equipment")
                         .header("Authorization", "Bearer " + jwtToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(newEquipmentBody("EQP-IT-" + System.nanoTime()))))
+                        .content(objectMapper.writeValueAsString(newEquipmentBody())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.nome").value("Multímetro Digital"))
+                .andExpect(jsonPath("$.codigo").value(org.hamcrest.Matchers.matchesPattern("EQP-\\d{4,}")))
                 .andExpect(jsonPath("$.fotoUrl").value("multimetro.jpg"))
                 .andExpect(jsonPath("$.status").value("DISPONIVEL"))
                 .andExpect(jsonPath("$.categoria").value("Medição"))
@@ -389,27 +391,45 @@ class EquipmentControllerIT {
     }
 
     @Test
-    void createEquipmentReturns409_WhenCodeAlreadyExists() throws Exception {
-        String code = "EQP-IT-" + System.nanoTime();
-        String body = objectMapper.writeValueAsString(newEquipmentBody(code));
+    void createEquipmentGeneratesDifferentCodes_ForEachEquipmentCreated() throws Exception {
+        String body = objectMapper.writeValueAsString(newEquipmentBody());
+
+        MvcResult first = mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        MvcResult second = mockMvc.perform(post("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String firstCode = objectMapper.readTree(first.getResponse().getContentAsString()).get("codigo").asText();
+        String secondCode = objectMapper.readTree(second.getResponse().getContentAsString()).get("codigo").asText();
+
+        assertThat(firstCode).isNotEqualTo(secondCode);
+    }
+
+    @Test
+    void createEquipmentReturns201WithDefaultCategory_WhenCategoryOmitted() throws Exception {
+        Map<String, Object> body = newEquipmentBody();
+        body.remove("categoria");
 
         mockMvc.perform(post("/api/equipment")
                         .header("Authorization", "Bearer " + jwtToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isCreated());
-
-        mockMvc.perform(post("/api/equipment")
-                        .header("Authorization", "Bearer " + jwtToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409));
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.categoria").value("Sem categoria"));
     }
 
     @Test
     void createEquipmentReturns400_WhenStatusIsNotInEnum() throws Exception {
-        Map<String, Object> body = newEquipmentBody("EQP-IT-" + System.nanoTime());
+        Map<String, Object> body = newEquipmentBody();
         body.put("status", "available");
 
         mockMvc.perform(post("/api/equipment")
@@ -666,10 +686,9 @@ class EquipmentControllerIT {
         loanItemRepository.save(item);
     }
 
-    private Map<String, Object> newEquipmentBody(String code) {
+    private Map<String, Object> newEquipmentBody() {
         Map<String, Object> body = new HashMap<>();
         body.put("nome", "Multímetro Digital");
-        body.put("codigo", code);
         body.put("fotoUrl", "multimetro.jpg");
         body.put("categoria", "Medição");
         body.put("laboratorio", "Laboratório de Eletrônica");

@@ -5,7 +5,6 @@ import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
 import com.labtrack.labtrack.dto.ProjectResponseDTO;
-import com.labtrack.labtrack.exception.DuplicateEquipmentCodeException;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
@@ -37,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -47,6 +47,7 @@ public class EquipmentService {
     private static final String EVENT_TYPE_CHECKOUT = "RETIRADA";
     private static final String EVENT_TYPE_RETURN = "DEVOLUCAO";
     private static final String ITEM_STATUS_LOANED = "loaned";
+    private static final String DEFAULT_CATEGORY = "Sem categoria";
 
     private final EquipmentRepository equipmentRepository;
     private final LoanItemRepository loanItemRepository;
@@ -59,24 +60,31 @@ public class EquipmentService {
     public EquipmentResponseDTO createEquipment(EquipmentRequestDTO request) {
         log.info("Criando novo equipamento: {}", request.getName());
 
-        if (equipmentRepository.existsByCode(request.getCode())) {
-            throw new DuplicateEquipmentCodeException(request.getCode());
-        }
-
         Equipment equipment = new Equipment();
         equipment.setName(request.getName());
-        equipment.setCode(request.getCode());
+        // placeholder unico ate o INSERT gerar o id; o codigo real depende dele (EQP-0001 = id 1)
+        equipment.setCode(UUID.randomUUID().toString());
         equipment.setIdentificationPhoto(request.getIdentificationPhoto());
         equipment.setCurrentStatus(
                 request.getCurrentStatus() != null ? request.getCurrentStatus() : EquipmentStatus.DISPONIVEL);
-        equipment.setCategory(request.getCategory());
+        equipment.setCategory(
+                request.getCategory() != null && !request.getCategory().isBlank()
+                        ? request.getCategory() : DEFAULT_CATEGORY);
         equipment.setLaboratory(request.getLaboratory());
         equipment.setQuantity(request.getQuantity());
 
         Equipment savedEquipment = equipmentRepository.save(equipment);
-        log.info("Equipamento criado com ID: {}", savedEquipment.getId());
+
+        savedEquipment.setCode(generateCode(savedEquipment.getId()));
+        savedEquipment = equipmentRepository.save(savedEquipment);
+
+        log.info("Equipamento criado com ID: {} e codigo: {}", savedEquipment.getId(), savedEquipment.getCode());
 
         return mapToResponseDTO(savedEquipment);
+    }
+
+    private String generateCode(Long id) {
+        return String.format("EQP-%04d", id);
     }
 
     @Transactional(readOnly = true)
