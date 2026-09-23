@@ -340,6 +340,34 @@ class EquipmentControllerIT {
     }
 
     @Test
+    void getEquipmentReturnsNewestFirst() throws Exception {
+        Equipment older = saveEquipment(EquipmentStatus.DISPONIVEL);
+        entityManager.flush();
+
+        Equipment newer = saveEquipment(EquipmentStatus.DISPONIVEL);
+        entityManager.flush();
+
+        MvcResult result = mockMvc.perform(get("/api/equipment")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .param("size", "100"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        var content = objectMapper.readTree(result.getResponse().getContentAsString()).get("content");
+        int newerIndex = -1;
+        int olderIndex = -1;
+        for (int i = 0; i < content.size(); i++) {
+            long id = content.get(i).get("id").asLong();
+            if (id == newer.getId()) newerIndex = i;
+            if (id == older.getId()) olderIndex = i;
+        }
+
+        assertThat(newerIndex).isGreaterThanOrEqualTo(0);
+        assertThat(olderIndex).isGreaterThanOrEqualTo(0);
+        assertThat(newerIndex).isLessThan(olderIndex);
+    }
+
+    @Test
     void getEquipmentReturns401_WhenNoTokenProvided() throws Exception {
         mockMvc.perform(get("/api/equipment"))
                 .andExpect(status().isUnauthorized());
