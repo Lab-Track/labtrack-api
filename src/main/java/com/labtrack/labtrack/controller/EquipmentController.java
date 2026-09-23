@@ -4,8 +4,10 @@ import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
+import com.labtrack.labtrack.dto.PhotoUploadResponseDTO;
 import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.service.EquipmentService;
+import com.labtrack.labtrack.service.PhotoStorageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -20,9 +22,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
 
@@ -35,6 +39,7 @@ import java.security.Principal;
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
+    private final PhotoStorageService photoStorageService;
 
     @Operation(
             summary = "Listar equipamentos (catálogo)",
@@ -114,6 +119,30 @@ public class EquipmentController {
         log.info("Equipment created with ID: {}", response.getId());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(
+            summary = "Upload de foto de equipamento",
+            description = "Recebe um arquivo JPG ou PNG de até 5MB, salva em disco e retorna a URL publica " +
+                    "para uso no campo fotoUrl do cadastro de equipamento."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Foto salva com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Arquivo ausente, fora do formato aceito (JPG/PNG) ou maior que 5MB"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente")
+    })
+    @PostMapping(value = "/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PhotoUploadResponseDTO> uploadPhoto(
+            @Parameter(description = "Arquivo JPG ou PNG, ate 5MB")
+            @RequestPart("foto")
+            MultipartFile foto) {
+
+        log.info("Requisição POST /api/equipment/photos - originalFilename={}", foto.getOriginalFilename());
+
+        String fotoUrl = photoStorageService.store(foto);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(PhotoUploadResponseDTO.builder().fotoUrl(fotoUrl).build());
     }
 
     @Operation(

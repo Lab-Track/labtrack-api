@@ -91,7 +91,7 @@ class EquipmentDtoJsonTest {
     void shouldDeserializeRequestWithFrontendFieldNames() throws JsonProcessingException {
         // Arrange
         String body = """
-                {"nome":"Multímetro Digital","codigo":"EQP-0001","fotoUrl":"foto.jpg",
+                {"nome":"Multímetro Digital","fotoUrl":"foto.jpg",
                  "status":"MANUTENCAO","categoria":"Medição","laboratorio":"Laboratório de Eletrônica",
                  "qtdTotal":3}
                 """;
@@ -101,7 +101,6 @@ class EquipmentDtoJsonTest {
 
         // Assert
         assertThat(request.getName()).isEqualTo("Multímetro Digital");
-        assertThat(request.getCode()).isEqualTo("EQP-0001");
         assertThat(request.getIdentificationPhoto()).isEqualTo("foto.jpg");
         assertThat(request.getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
         assertThat(request.getCategory()).isEqualTo("Medição");
@@ -113,7 +112,7 @@ class EquipmentDtoJsonTest {
     void shouldRejectRequest_WhenStatusIsNotInEnum() {
         // Arrange
         String body = """
-                {"nome":"X","codigo":"C","fotoUrl":"f","status":"available",
+                {"nome":"X","fotoUrl":"f","status":"available",
                  "categoria":"c","laboratorio":"l","qtdTotal":1}
                 """;
 

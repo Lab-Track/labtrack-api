@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
@@ -109,19 +110,32 @@ public class GlobalExceptionHandler{
         return notFoundResponse("Projeto não encontrado", ex.getMessage());
     }
 
-    @ExceptionHandler(DuplicateEquipmentCodeException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateEquipmentCodeException(
-            DuplicateEquipmentCodeException ex) {
-        log.warn("Código de equipamento duplicado: {}", ex.getMessage());
+    @ExceptionHandler(InvalidPhotoFileException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPhotoFileException(InvalidPhotoFileException ex) {
+        log.warn("Arquivo de foto invalido: {}", ex.getMessage());
 
         ErrorResponse error = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CONFLICT.value())
-                .error("Código de equipamento já cadastrado")
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Arquivo de foto inválido")
                 .message(ex.getMessage())
                 .build();
 
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+        log.warn("Upload excedeu o tamanho maximo permitido");
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Arquivo de foto inválido")
+                .message("Arquivo maior que o limite de 5MB")
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(EquipmentDeletionNotAllowedException.class)

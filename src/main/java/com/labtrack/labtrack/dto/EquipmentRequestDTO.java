@@ -24,12 +24,6 @@ public class EquipmentRequestDTO {
     @Schema(description = "Nome do equipamento", example = "Multímetro Digital")
     private String name;
 
-    @JsonProperty("codigo")
-    @NotBlank(message = "Código do equipamento é obrigatório")
-    @Size(max = 50, message = "Código deve ter no máximo 50 caracteres")
-    @Schema(description = "Código único do equipamento", example = "EQP-0001")
-    private String code;
-
     @JsonProperty("fotoUrl")
     @NotBlank(message = "Foto de identificação é obrigatória")
     @Schema(description = "URL ou caminho da foto de identificação", example = "equipamentos/multimetro.jpg")
@@ -40,9 +34,8 @@ public class EquipmentRequestDTO {
     private EquipmentStatus currentStatus;
 
     @JsonProperty("categoria")
-    @NotBlank(message = "Categoria é obrigatória")
     @Size(max = 100, message = "Categoria deve ter no máximo 100 caracteres")
-    @Schema(description = "Categoria do equipamento", example = "Medição")
+    @Schema(description = "Categoria do equipamento (opcional, padrão: \"Sem categoria\")", example = "Medição")
     private String category;
 
     @JsonProperty("laboratorio")

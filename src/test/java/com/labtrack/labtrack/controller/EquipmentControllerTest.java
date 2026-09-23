@@ -3,8 +3,10 @@ package com.labtrack.labtrack.controller;
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
+import com.labtrack.labtrack.dto.PhotoUploadResponseDTO;
 import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.service.EquipmentService;
+import com.labtrack.labtrack.service.PhotoStorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -29,6 +32,9 @@ class EquipmentControllerTest {
 
     @Mock
     private EquipmentService equipmentService;
+
+    @Mock
+    private PhotoStorageService photoStorageService;
 
     @InjectMocks
     private EquipmentController equipmentController;
@@ -113,6 +119,23 @@ class EquipmentControllerTest {
         // Assert
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getContent()).hasSize(1);
+    }
+
+    @Test
+    void shouldReturn201WithPhotoUrl_WhenUploadingValidPhoto() {
+        // Arrange
+        MockMultipartFile file = new MockMultipartFile(
+                "foto", "multimetro.jpg", "image/jpeg", "conteudo-fake".getBytes());
+        when(photoStorageService.store(file))
+                .thenReturn("http://localhost:8080/uploads/equipment-photos/abc123.jpg");
+
+        // Act
+        ResponseEntity<PhotoUploadResponseDTO> response = equipmentController.uploadPhoto(file);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().getFotoUrl())
+                .isEqualTo("http://localhost:8080/uploads/equipment-photos/abc123.jpg");
     }
 
     @Test

@@ -12,8 +12,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
-    boolean existsByCode(String code);
-
     @Query(
             value = "SELECT e FROM Equipment e WHERE " +
                     "(:status IS NULL OR e.currentStatus = :status) AND " +
