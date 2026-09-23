@@ -44,7 +44,8 @@ public class EquipmentController {
     @Operation(
             summary = "Listar equipamentos (catálogo)",
             description = "Lista os equipamentos de forma paginada, com filtros opcionais por status, " +
-                    "por busca (nome ou código, case-insensitive) e por projeto vinculado."
+                    "por busca (nome ou código, case-insensitive) e por projeto vinculado. " +
+                    "Ordenado por data de cadastro decrescente (mais recente primeiro)."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Catálogo retornado com sucesso"),
