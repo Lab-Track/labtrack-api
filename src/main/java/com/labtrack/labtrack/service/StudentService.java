@@ -68,6 +68,63 @@ public class StudentService {
         return convertToStudentResponse(saved);
     }
 
+    /**
+     * Busca o aluno pela matrícula e o cria na primeira vez (RF12, RF14, RF15, RN06).
+     * A matrícula só identifica o aluno no nosso banco; nome, e-mail e telefone vêm do técnico.
+     * Aluno já cadastrado não é sobrescrito: só e-mail/telefone que estiverem faltando são completados.
+     * Sem matrícula não há chave de busca, então um novo aluno (sem matrícula) é criado.
+     */
+    @Transactional
+    public Student findOrCreateByRegistrationNumber(
+            String registrationNumber, String name, String email, String phone) {
+        if (registrationNumber == null || registrationNumber.isBlank()) {
+            log.info("Cadastrando aluno sem matrícula");
+            return studentRepository.save(newStudent(name, email, phone));
+        }
+
+        Student student = studentRepository.findByRegistrationNumber(registrationNumber).orElse(null);
+        if (student == null) {
+            log.info("Matrícula {} nova; cadastrando aluno", registrationNumber);
+            studentRepository.insertIfAbsent(registrationNumber, name, email, phone);
+            student = studentRepository.findByRegistrationNumber(registrationNumber)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Aluno não encontrado após cadastro: " + registrationNumber));
+        }
+
+        if (completeMissingData(student, email, phone)) {
+            log.info("Dados faltantes do aluno {} completados", registrationNumber);
+            studentRepository.save(student);
+        }
+        return student;
+    }
+
+    private boolean completeMissingData(Student student, String email, String phone) {
+        boolean changed = false;
+        if (isBlank(student.getEmail()) && !isBlank(email)) {
+            student.setEmail(email);
+            changed = true;
+        }
+        if (isBlank(student.getPhone()) && !isBlank(phone)) {
+            student.setPhone(phone);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private Student newStudent(String name, String email, String phone) {
+        Student student = new Student();
+        student.setName(name);
+        student.setEmail(email);
+        student.setPhone(phone);
+        student.setReliabilityRate(BigDecimal.valueOf(100));
+        student.setRegistrationDate(LocalDateTime.now());
+        return student;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     private StudentResponse convertToStudentResponse(Student student) {
         return new StudentResponse(
                 student.getId(),

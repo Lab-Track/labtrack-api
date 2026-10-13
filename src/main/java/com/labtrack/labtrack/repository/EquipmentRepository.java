@@ -2,12 +2,17 @@ package com.labtrack.labtrack.repository;
 
 import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.EquipmentStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.Collection;
+import java.util.List;
 
 @Repository
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
@@ -30,4 +35,10 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("search") String search,
             @Param("projectId") Long projectId,
             Pageable pageable);
+
+    // Trava as linhas (ordenadas por id para evitar deadlock) enquanto o empréstimo é validado e gravado,
+    // para que dois empréstimos simultâneos do mesmo equipamento não passem juntos pela checagem da RN01.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Equipment e WHERE e.id IN :ids ORDER BY e.id")
+    List<Equipment> findAllByIdForUpdate(@Param("ids") Collection<Long> ids);
 }

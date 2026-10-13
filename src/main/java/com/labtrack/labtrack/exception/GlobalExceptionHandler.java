@@ -110,6 +110,40 @@ public class GlobalExceptionHandler{
         return notFoundResponse("Projeto não encontrado", ex.getMessage());
     }
 
+    @ExceptionHandler(ProfessorNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProfessorNotFoundException(ProfessorNotFoundException ex) {
+        return notFoundResponse("Professor não encontrado", ex.getMessage());
+    }
+
+    @ExceptionHandler(EquipmentNotAvailableException.class)
+    public ResponseEntity<ErrorResponse> handleEquipmentNotAvailableException(
+            EquipmentNotAvailableException ex) {
+        log.warn("Equipamento indisponível: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Equipamento indisponível")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(LoanNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleLoanNotAllowedException(LoanNotAllowedException ex) {
+        log.warn("Empréstimo não permitido: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
+                .error("Empréstimo não permitido")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
+    }
+
     @ExceptionHandler(InvalidPhotoFileException.class)
     public ResponseEntity<ErrorResponse> handleInvalidPhotoFileException(InvalidPhotoFileException ex) {
         log.warn("Arquivo de foto invalido: {}", ex.getMessage());
