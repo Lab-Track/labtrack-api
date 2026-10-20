@@ -3,6 +3,7 @@ package com.labtrack.labtrack.service;
 import com.labtrack.labtrack.dto.LoanItemRequestDTO;
 import com.labtrack.labtrack.dto.LoanRequestDTO;
 import com.labtrack.labtrack.dto.LoanResponseDTO;
+import com.labtrack.labtrack.dto.LoanSummaryDTO;
 import com.labtrack.labtrack.exception.EquipmentNotAvailableException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.LoanNotAllowedException;
@@ -266,6 +267,77 @@ class LoanServiceTest {
         LoanResponseDTO response = loanService.createLoan(request(item(1L)), "tecnico.teste");
 
         assertThat(response.getLoanId()).isEqualTo(100L);
+    }
+
+    @Test
+    void listsActiveLoansWithEquipmentNameAndQuantityFromLoanedItems() {
+        Loan loan = new Loan();
+        loan.setId(200L);
+        loan.setStudent(student);
+        loan.setResponsibleProfessor(professor);
+        loan.setTechnician(technician);
+        loan.setCheckoutDate(LocalDateTime.now().minusDays(1));
+        loan.setExpectedReturnDate(LocalDateTime.now().plusDays(6));
+        loan.setLoanStatus("in_progress");
+
+        LoanItem loanedItem = new LoanItem();
+        loanedItem.setEquipment(equipment);
+        loanedItem.setItemStatus("loaned");
+
+        LoanItem returnedItem = new LoanItem();
+        returnedItem.setEquipment(equipment);
+        returnedItem.setItemStatus("returned");
+
+        loan.setLoanItems(List.of(loanedItem, returnedItem));
+
+        when(loanRepository.findAllActiveOrderByCheckoutDateDesc()).thenReturn(List.of(loan));
+
+        List<LoanSummaryDTO> result = loanService.findAllActiveLoans();
+
+        assertThat(result).hasSize(1);
+        LoanSummaryDTO summary = result.get(0);
+        assertThat(summary.getLoanId()).isEqualTo(200L);
+        assertThat(summary.getEquipmentName()).isEqualTo("Osciloscópio");
+        assertThat(summary.getQuantity()).isEqualTo(1);
+        assertThat(summary.getStudentName()).isEqualTo("Ana Souza");
+        assertThat(summary.getStudentRegistrationNumber()).isEqualTo("2021001");
+        assertThat(summary.getProfessorName()).isEqualTo("Carlos Lima");
+        assertThat(summary.getTechnicianName()).isEqualTo("Técnico");
+        assertThat(summary.getLoanStatus()).isEqualTo("in_progress");
+    }
+
+    @Test
+    void listsActiveLoanWithNullEquipmentNameWhenAllItemsAlreadyReturned() {
+        Loan loan = new Loan();
+        loan.setId(201L);
+        loan.setStudent(student);
+        loan.setResponsibleProfessor(professor);
+        loan.setTechnician(technician);
+        loan.setCheckoutDate(LocalDateTime.now());
+        loan.setExpectedReturnDate(LocalDateTime.now().plusDays(7));
+        loan.setLoanStatus("partial");
+
+        LoanItem returnedItem = new LoanItem();
+        returnedItem.setEquipment(equipment);
+        returnedItem.setItemStatus("returned");
+        loan.setLoanItems(List.of(returnedItem));
+
+        when(loanRepository.findAllActiveOrderByCheckoutDateDesc()).thenReturn(List.of(loan));
+
+        List<LoanSummaryDTO> result = loanService.findAllActiveLoans();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getEquipmentName()).isNull();
+        assertThat(result.get(0).getQuantity()).isZero();
+    }
+
+    @Test
+    void returnsEmptyListWhenThereAreNoActiveLoans() {
+        when(loanRepository.findAllActiveOrderByCheckoutDateDesc()).thenReturn(List.of());
+
+        List<LoanSummaryDTO> result = loanService.findAllActiveLoans();
+
+        assertThat(result).isEmpty();
     }
 
     @Test

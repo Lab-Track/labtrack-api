@@ -4,6 +4,7 @@ import com.labtrack.labtrack.dto.ActiveLoanItemDTO;
 import com.labtrack.labtrack.dto.LoanItemRequestDTO;
 import com.labtrack.labtrack.dto.LoanRequestDTO;
 import com.labtrack.labtrack.dto.LoanResponseDTO;
+import com.labtrack.labtrack.dto.LoanSummaryDTO;
 import com.labtrack.labtrack.exception.EquipmentNotAvailableException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.LoanNotAllowedException;
@@ -128,6 +129,22 @@ public class LoanService {
     }
 
     /**
+     * Lista os empréstimos ainda não devolvidos (RF03), mais recentes primeiro, para a tela de
+     * acompanhamento de empréstimos do técnico.
+     */
+    @Transactional(readOnly = true)
+    public List<LoanSummaryDTO> findAllActiveLoans() {
+        log.info("Buscando todos os empréstimos em andamento");
+
+        List<LoanSummaryDTO> loans = loanRepository.findAllActiveOrderByCheckoutDateDesc().stream()
+                .map(this::toSummary)
+                .toList();
+
+        log.info("Retornando {} empréstimo(s) em andamento", loans.size());
+        return loans;
+    }
+
+    /**
      * Persiste o atraso: empréstimos abertos com prazo vencido viram 'late'. Chamado pelo job agendado;
      * a RN05 não depende dele (ver LoanRepository.hasOverdueLoan).
      */
@@ -188,6 +205,28 @@ public class LoanService {
 
         equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
         equipmentRepository.save(equipment);
+    }
+
+    // Empréstimos com vários tipos de equipamento ainda não existem (RF09, previsto para um encontro
+    // futuro); até lá cada empréstimo tem um único equipamento, repetido por unidade retirada.
+    private LoanSummaryDTO toSummary(Loan loan) {
+        List<LoanItem> activeItems = loan.getLoanItems().stream()
+                .filter(item -> ITEM_STATUS_LOANED.equals(item.getItemStatus()))
+                .toList();
+        Equipment equipment = activeItems.isEmpty() ? null : activeItems.get(0).getEquipment();
+
+        return LoanSummaryDTO.builder()
+                .loanId(loan.getId())
+                .equipmentName(equipment != null ? equipment.getName() : null)
+                .quantity(activeItems.size())
+                .studentName(loan.getStudent().getName())
+                .studentRegistrationNumber(loan.getStudent().getRegistrationNumber())
+                .professorName(loan.getResponsibleProfessor().getName())
+                .technicianName(loan.getTechnician().getName())
+                .checkoutDate(loan.getCheckoutDate())
+                .expectedReturnDate(loan.getExpectedReturnDate())
+                .loanStatus(loan.getLoanStatus())
+                .build();
     }
 
     private LoanResponseDTO toResponse(Loan loan, Student student, Professor professor, List<LoanItem> items) {

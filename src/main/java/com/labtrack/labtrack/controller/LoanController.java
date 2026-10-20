@@ -2,6 +2,7 @@ package com.labtrack.labtrack.controller;
 
 import com.labtrack.labtrack.dto.LoanRequestDTO;
 import com.labtrack.labtrack.dto.LoanResponseDTO;
+import com.labtrack.labtrack.dto.LoanSummaryDTO;
 import com.labtrack.labtrack.service.LoanService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,12 +13,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -53,5 +56,23 @@ public class LoanController {
         LoanResponseDTO response = loanService.createLoan(request, principal.getName());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(
+            summary = "Listar empréstimos em andamento (RF03)",
+            description = "Lista os empréstimos ainda não devolvidos (em andamento ou atrasados), " +
+                    "mais recentes primeiro."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista de empréstimos retornada com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente")
+    })
+    @GetMapping
+    public ResponseEntity<List<LoanSummaryDTO>> listActiveLoans() {
+        log.info("Requisição GET /api/loans");
+
+        List<LoanSummaryDTO> loans = loanService.findAllActiveLoans();
+
+        return ResponseEntity.ok(loans);
     }
 }
