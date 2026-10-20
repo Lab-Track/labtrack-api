@@ -44,6 +44,16 @@ public class StudentService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public StudentResponse findByRegistrationNumber(String registration) {
+        log.info("Buscando aluno pela matrícula: {}", registration);
+
+        Student student = studentRepository.findByRegistrationNumber(registration)
+                .orElseThrow(() -> new StudentNotFoundException(registration));
+
+        return convertToStudentResponse(student);
+    }
+
     @Transactional
     public StudentResponse createStudent(StudentCreateRequest request) {
         log.info("Cadastrando aluno com matrícula: {}", request.registrationNumber());

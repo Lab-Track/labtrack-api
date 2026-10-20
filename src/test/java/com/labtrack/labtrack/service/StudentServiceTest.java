@@ -144,6 +144,38 @@ class StudentServiceTest {
     }
 
     @Test
+    void shouldReturnStudent_WhenFoundByRegistrationNumber() {
+        // Arrange
+        when(studentRepository.findByRegistrationNumber(registration))
+                .thenReturn(Optional.of(student));
+
+        // Act
+        StudentResponse result = studentService.findByRegistrationNumber(registration);
+
+        // Assert
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.name()).isEqualTo("João Silva");
+        assertThat(result.registrationNumber()).isEqualTo(registration);
+        assertThat(result.email()).isEqualTo("joao@email.com");
+        assertThat(result.phone()).isEqualTo("1199999999");
+
+        verify(studentRepository).findByRegistrationNumber(registration);
+    }
+
+    @Test
+    void shouldThrowStudentNotFoundException_WhenRegistrationNumberHasNoStudent() {
+        // Arrange
+        String unknownRegistration = "9999999";
+        when(studentRepository.findByRegistrationNumber(unknownRegistration))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> studentService.findByRegistrationNumber(unknownRegistration))
+                .isInstanceOf(StudentNotFoundException.class)
+                .hasMessageContaining(unknownRegistration);
+    }
+
+    @Test
     void shouldCreateStudent_WhenRegistrationNumberIsNew() {
         // Arrange
         String newRegistration = "2022050";
