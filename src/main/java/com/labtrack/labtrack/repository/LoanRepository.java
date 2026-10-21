@@ -17,6 +17,9 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     @Query("SELECT l FROM Loan l WHERE l.student = :student AND l.loanStatus != 'returned'")
     List<Loan> findActiveLoansByStudent(@Param("student") Student student);
 
+    @Query("SELECT l FROM Loan l WHERE l.loanStatus <> 'returned' ORDER BY l.checkoutDate DESC")
+    List<Loan> findAllActiveOrderByCheckoutDateDesc();
+
     // RN05: atrasado = status 'late' já gravado OU prazo (prorrogado, se houver) vencido e ainda aberto.
     // A segunda condição torna a regra independente de o job de atraso já ter rodado.
     @Query("SELECT COUNT(l) > 0 FROM Loan l WHERE l.student = :student AND (l.loanStatus = 'late' OR " +

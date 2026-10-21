@@ -253,6 +253,25 @@ public class GlobalExceptionHandler{
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
+    @ExceptionHandler(LoanNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleLoanNotFoundException(LoanNotFoundException ex) {
+        return notFoundResponse("Empréstimo não encontrado", ex.getMessage());
+    }
+
+    @ExceptionHandler(LoanReturnNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleLoanReturnNotAllowedException(LoanReturnNotAllowedException ex) {
+        log.warn("Devolução não permitida: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Devolução não permitida")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     private ResponseEntity<ErrorResponse> notFoundResponse(String errorLabel, String message) {
         log.warn("{}: {}", errorLabel, message);
 

@@ -2,6 +2,7 @@ package com.labtrack.labtrack.controller;
 
 import com.labtrack.labtrack.dto.ActiveLoanDTO;
 import com.labtrack.labtrack.dto.ActiveLoanItemDTO;
+import com.labtrack.labtrack.dto.StudentResponse;
 import com.labtrack.labtrack.exception.StudentNotFoundException;
 import com.labtrack.labtrack.service.StudentService;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,39 @@ class StudentControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody()).isEmpty();
+    }
+
+    @Test
+    void shouldReturn200_WhenStudentFoundByRegistration() {
+        // Arrange
+        String registration = "2021001";
+        StudentResponse response = new StudentResponse(
+                1L, "João Silva", registration, "joao@email.com", "1199999999",
+                java.math.BigDecimal.valueOf(100), LocalDateTime.now());
+
+        when(studentService.findByRegistrationNumber(registration)).thenReturn(response);
+
+        // Act
+        ResponseEntity<StudentResponse> result = studentController.getByRegistration(registration);
+
+        // Assert
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isNotNull();
+        assertThat(result.getBody().registrationNumber()).isEqualTo(registration);
+        assertThat(result.getBody().name()).isEqualTo("João Silva");
+    }
+
+    @Test
+    void shouldThrowStudentNotFoundException_WhenGetByRegistrationFindsNoStudent() {
+        // Arrange
+        String registration = "9999999";
+        when(studentService.findByRegistrationNumber(registration))
+                .thenThrow(new StudentNotFoundException(registration));
+
+        // Act & Assert
+        assertThatThrownBy(() -> studentController.getByRegistration(registration))
+                .isInstanceOf(StudentNotFoundException.class)
+                .hasMessageContaining(registration);
     }
 
     @Test
