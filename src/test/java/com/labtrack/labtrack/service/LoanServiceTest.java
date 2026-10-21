@@ -3,6 +3,7 @@ package com.labtrack.labtrack.service;
 import com.labtrack.labtrack.dto.LoanItemRequestDTO;
 import com.labtrack.labtrack.dto.LoanRequestDTO;
 import com.labtrack.labtrack.dto.LoanResponseDTO;
+import com.labtrack.labtrack.dto.LoanReturnRequestDTO;
 import com.labtrack.labtrack.dto.LoanSummaryDTO;
 import com.labtrack.labtrack.exception.EquipmentNotAvailableException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
@@ -12,6 +13,7 @@ import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
+import com.labtrack.labtrack.model.LoanReturn;
 import com.labtrack.labtrack.model.Professor;
 import com.labtrack.labtrack.model.StatusHistory;
 import com.labtrack.labtrack.model.Student;
@@ -19,6 +21,7 @@ import com.labtrack.labtrack.model.Technician;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanRepository;
+import com.labtrack.labtrack.repository.LoanReturnRepository;
 import com.labtrack.labtrack.repository.ProfessorRepository;
 import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import com.labtrack.labtrack.repository.TechnicianRepository;
@@ -53,6 +56,8 @@ class LoanServiceTest {
     private LoanRepository loanRepository;
     @Mock
     private LoanItemRepository loanItemRepository;
+    @Mock
+    private LoanReturnRepository loanReturnRepository;
     @Mock
     private EquipmentRepository equipmentRepository;
     @Mock
@@ -347,5 +352,80 @@ class LoanServiceTest {
         int updated = loanService.markOverdueLoans();
 
         assertThat(updated).isEqualTo(2);
+    }
+
+    // --- devolução (RF04): status do equipamento ---
+
+    private Loan loanWithLoanedItems(int loanedItemsInThisLoan) {
+        Loan loan = new Loan();
+        loan.setId(100L);
+        loan.setLoanStatus("in_progress");
+        loan.setExpectedReturnDate(LocalDateTime.now().plusDays(3));
+        List<LoanItem> items = new java.util.ArrayList<>();
+        for (int i = 0; i < loanedItemsInThisLoan; i++) {
+            LoanItem loanItem = new LoanItem();
+            loanItem.setId(200L + i);
+            loanItem.setLoan(loan);
+            loanItem.setEquipment(equipment);
+            loanItem.setItemStatus("loaned");
+            items.add(loanItem);
+        }
+        loan.setLoanItems(items);
+        when(loanRepository.findById(100L)).thenReturn(Optional.of(loan));
+        when(loanItemRepository.findByLoanIdAndItemStatusOrderById(100L, "loaned")).thenReturn(items);
+        when(technicianRepository.findByLogin("tecnico.teste")).thenReturn(Optional.of(technician));
+        lenient().when(loanItemRepository.save(any(LoanItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(loanReturnRepository.save(any(LoanReturn.class))).thenAnswer(inv -> inv.getArgument(0));
+        return loan;
+    }
+
+    private LoanReturnRequestDTO returnRequest(int quantity) {
+        return LoanReturnRequestDTO.builder()
+                .quantity(quantity)
+                .returnCondition("Sem avarias")
+                .returnPhoto("uploads/devolucao.jpg")
+                .verificationStatus("Funcionando normalmente")
+                .build();
+    }
+
+    @Test
+    void partialReturnMakesFullyLoanedEquipmentAvailableAgainWhileUnitsAreFree() {
+        equipment.setQuantity(3);
+        equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
+        loanWithLoanedItems(3);
+        // devolvendo 1 das 3 unidades: restam 2 emprestadas de 3, ou seja, 1 unidade livre
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(2L);
+
+        loanService.registerReturn(100L, returnRequest(1), "tecnico.teste");
+
+        assertThat(equipment.getCurrentStatus()).isEqualTo(EquipmentStatus.DISPONIVEL);
+        ArgumentCaptor<StatusHistory> history = ArgumentCaptor.forClass(StatusHistory.class);
+        verify(statusHistoryRepository).save(history.capture());
+        assertThat(history.getValue().getPreviousStatus()).isEqualTo("EMPRESTADO");
+        assertThat(history.getValue().getNewStatus()).isEqualTo("DISPONIVEL");
+    }
+
+    @Test
+    void fullReturnMakesEquipmentAvailableAgain() {
+        equipment.setQuantity(2);
+        equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
+        loanWithLoanedItems(2);
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        loanService.registerReturn(100L, returnRequest(2), "tecnico.teste");
+
+        assertThat(equipment.getCurrentStatus()).isEqualTo(EquipmentStatus.DISPONIVEL);
+    }
+
+    @Test
+    void returnDoesNotChangeStatusOfEquipmentThatIsNotEmprestado() {
+        equipment.setQuantity(3);
+        equipment.setCurrentStatus(EquipmentStatus.MANUTENCAO);
+        loanWithLoanedItems(1);
+
+        loanService.registerReturn(100L, returnRequest(1), "tecnico.teste");
+
+        assertThat(equipment.getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
+        verify(statusHistoryRepository, never()).save(any());
     }
 }

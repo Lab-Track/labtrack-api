@@ -171,7 +171,7 @@ public class LoanService {
      * Registra a devolução de uma ou mais unidades de um empréstimo (RF04). Devolve as unidades
      * mais antigas ainda emprestadas (loan_item com item_status='loaned'), grava 1 LoanReturn por
      * unidade devolvida, atualiza o status do empréstimo (partial/returned) e libera o equipamento
-     * de volta para DISPONIVEL quando nenhuma unidade dele continua emprestada.
+     * de volta para DISPONIVEL assim que sobra ao menos uma unidade livre.
      */
     @Transactional
     public LoanReturnResponseDTO registerReturn(
@@ -229,7 +229,7 @@ public class LoanService {
 
         // Empréstimos com vários tipos de equipamento ainda não existem (RF09), então todo
         // LoanItem de um mesmo Loan compartilha o mesmo equipamento (ver toSummary()).
-        releaseEquipmentIfNoUnitsLeft(itemsToReturn.get(0).getEquipment(), technician, loan);
+        releaseEquipmentIfUnitsFree(itemsToReturn.get(0).getEquipment(), technician, loan);
 
         log.info("Devolução registrada: empréstimo {} agora '{}' ({} unidade(s) ainda emprestada(s))",
                 loanId, loan.getLoanStatus(), remaining);
@@ -244,11 +244,16 @@ public class LoanService {
                 .build();
     }
 
-    private void releaseEquipmentIfNoUnitsLeft(Equipment equipment, Technician technician, Loan loan) {
+    // Espelho de markAsLoanedIfNoUnitsLeft: o equipamento é EMPRESTADO só enquanto não resta nenhuma
+    // unidade livre. Depois de uma devolução (mesmo parcial) que libera unidades, volta a DISPONIVEL,
+    // senão a RN01 bloquearia o empréstimo das unidades livres até a última voltar.
+    private void releaseEquipmentIfUnitsFree(Equipment equipment, Technician technician, Loan loan) {
         if (equipment.getCurrentStatus() != EquipmentStatus.EMPRESTADO) {
             return;
         }
-        if (loanItemRepository.existsByEquipmentIdAndItemStatus(equipment.getId(), ITEM_STATUS_LOANED)) {
+        long loanedUnits = loanItemRepository
+                .countByEquipmentIdAndItemStatus(equipment.getId(), ITEM_STATUS_LOANED);
+        if (loanedUnits >= equipment.getQuantity()) {
             return;
         }
 
