@@ -7,6 +7,7 @@ import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
+import com.labtrack.labtrack.exception.EquipmentUpdateNotAllowedException;
 import com.labtrack.labtrack.exception.ProjectNotFoundException;
 import com.labtrack.labtrack.model.*;
 import com.labtrack.labtrack.repository.EquipmentRepository;
@@ -817,5 +818,140 @@ class EquipmentServiceTest {
 
         verify(loanItemRepository, never()).findByEquipmentId(any());
         verify(loanReturnRepository, never()).findByEquipmentId(any());
+    }
+
+    private EquipmentRequestDTO updateRequest(Integer quantity, Long projectId) {
+        return EquipmentRequestDTO.builder()
+                .name("Osciloscópio Digital")
+                .identificationPhoto("novo.jpg")
+                .category("Medição")
+                .laboratory("Laboratório de Eletrônica")
+                .quantity(quantity)
+                .projectId(projectId)
+                .build();
+    }
+
+    @Test
+    void shouldUpdateEquipmentData_KeepingCodeAndStatus() {
+        // Arrange
+        equipment.setCode("EQP-0001");
+        equipment.setCurrentStatus(EquipmentStatus.MANUTENCAO);
+        equipment.setQuantity(1);
+        Project project = new Project();
+        project.setId(5L);
+        project.setName("Sensores IoT");
+        project.setProfessor(professor);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(project));
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.updateEquipment(1L, updateRequest(3, 5L));
+
+        // Assert
+        assertThat(response.getName()).isEqualTo("Osciloscópio Digital");
+        assertThat(response.getIdentificationPhoto()).isEqualTo("novo.jpg");
+        assertThat(response.getQuantity()).isEqualTo(3);
+        assertThat(response.getCode()).isEqualTo("EQP-0001");
+        assertThat(response.getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
+        assertThat(equipment.getProject()).isSameAs(project);
+    }
+
+    @Test
+    void shouldIgnoreStatusInUpdateRequest() {
+        // Arrange
+        EquipmentRequestDTO request = updateRequest(1, null);
+        request.setCurrentStatus(EquipmentStatus.INATIVO);
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        equipmentService.updateEquipment(1L, request);
+
+        // Assert
+        assertThat(equipment.getCurrentStatus()).isEqualTo(EquipmentStatus.DISPONIVEL);
+    }
+
+    @Test
+    void shouldRemoveProjectLink_WhenUpdateRequestHasNoProjectId() {
+        // Arrange
+        equipment.setProject(new Project());
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        equipmentService.updateEquipment(1L, updateRequest(1, null));
+
+        // Assert
+        assertThat(equipment.getProject()).isNull();
+    }
+
+    @Test
+    void shouldUseDefaultCategory_WhenUpdateRequestCategoryIsBlank() {
+        // Arrange
+        EquipmentRequestDTO request = updateRequest(1, null);
+        request.setCategory("  ");
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        equipmentService.updateEquipment(1L, request);
+
+        // Assert
+        assertThat(equipment.getCategory()).isEqualTo("Sem categoria");
+    }
+
+    @Test
+    void shouldAcceptQuantityEqualToLoanedUnits() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(2L);
+        when(equipmentRepository.save(any(Equipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        EquipmentResponseDTO response = equipmentService.updateEquipment(1L, updateRequest(2, null));
+
+        // Assert
+        assertThat(response.getQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldRejectUpdate_WhenQuantityIsBelowLoanedUnits() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(3L);
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateEquipment(1L, updateRequest(2, null)))
+                .isInstanceOf(EquipmentUpdateNotAllowedException.class)
+                .hasMessageContaining("3 unidade(s) emprestada(s)");
+
+        verify(equipmentRepository, never()).save(any(Equipment.class));
+    }
+
+    @Test
+    void shouldThrowEquipmentNotFound_WhenUpdatingMissingEquipment() {
+        // Arrange
+        when(equipmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateEquipment(999L, updateRequest(1, null)))
+                .isInstanceOf(EquipmentNotFoundException.class);
+
+        verify(equipmentRepository, never()).save(any(Equipment.class));
+    }
+
+    @Test
+    void shouldThrowProjectNotFound_WhenUpdatingWithUnknownProject() {
+        // Arrange
+        when(equipmentRepository.findById(1L)).thenReturn(Optional.of(equipment));
+        when(projectRepository.findById(77L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> equipmentService.updateEquipment(1L, updateRequest(1, 77L)))
+                .isInstanceOf(ProjectNotFoundException.class);
+
+        verify(equipmentRepository, never()).save(any(Equipment.class));
     }
 }

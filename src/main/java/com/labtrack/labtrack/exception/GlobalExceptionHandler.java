@@ -187,6 +187,21 @@ public class GlobalExceptionHandler{
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    @ExceptionHandler(EquipmentUpdateNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleEquipmentUpdateNotAllowedException(
+            EquipmentUpdateNotAllowedException ex) {
+        log.warn("Atualização de equipamento não permitida: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Atualização não permitida")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(EquipmentStatusChangeNotAllowedException.class)
     public ResponseEntity<ErrorResponse> handleEquipmentStatusChangeNotAllowedException(
             EquipmentStatusChangeNotAllowedException ex) {

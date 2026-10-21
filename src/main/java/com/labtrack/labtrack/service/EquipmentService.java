@@ -8,6 +8,7 @@ import com.labtrack.labtrack.dto.ProjectResponseDTO;
 import com.labtrack.labtrack.exception.EquipmentDeletionNotAllowedException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.EquipmentStatusChangeNotAllowedException;
+import com.labtrack.labtrack.exception.EquipmentUpdateNotAllowedException;
 import com.labtrack.labtrack.exception.ProjectNotFoundException;
 import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.EquipmentStatus;
@@ -85,6 +86,45 @@ public class EquipmentService {
         savedEquipment = equipmentRepository.save(savedEquipment);
 
         log.info("Equipamento criado com ID: {} e codigo: {}", savedEquipment.getId(), savedEquipment.getCode());
+
+        return mapToResponseDTO(savedEquipment);
+    }
+
+    // PUT: substitui os dados cadastrais. code (patrimônio) e status ficam como estão; o status só
+    // muda pelo PATCH /{id}/status.
+    @Transactional
+    public EquipmentResponseDTO updateEquipment(Long equipmentId, EquipmentRequestDTO request) {
+        log.info("Atualizando equipamento id: {}", equipmentId);
+
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new EquipmentNotFoundException(equipmentId));
+
+        long loanedUnits = loanItemRepository
+                .countByEquipmentIdAndItemStatus(equipmentId, ITEM_STATUS_LOANED);
+        if (request.getQuantity() < loanedUnits) {
+            throw new EquipmentUpdateNotAllowedException(
+                    "Quantidade total (" + request.getQuantity() + ") não pode ser menor que as "
+                            + loanedUnits + " unidade(s) emprestada(s) no momento");
+        }
+
+        Project project = null;
+        if (request.getProjectId() != null) {
+            project = projectRepository.findById(request.getProjectId())
+                    .orElseThrow(() -> new ProjectNotFoundException(request.getProjectId()));
+        }
+
+        equipment.setName(request.getName());
+        equipment.setIdentificationPhoto(request.getIdentificationPhoto());
+        equipment.setCategory(
+                request.getCategory() != null && !request.getCategory().isBlank()
+                        ? request.getCategory() : DEFAULT_CATEGORY);
+        equipment.setLaboratory(request.getLaboratory());
+        equipment.setQuantity(request.getQuantity());
+        equipment.setProject(project);
+
+        Equipment savedEquipment = equipmentRepository.save(equipment);
+
+        log.info("Equipamento atualizado com ID: {}", equipmentId);
 
         return mapToResponseDTO(savedEquipment);
     }
