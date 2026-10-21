@@ -37,6 +37,9 @@ public class LoanReturn {
     @Column(name = "return_condition", nullable = false)
     private String returnCondition;
 
+    @Column(name = "return_photo", nullable = false)
+    private String returnPhoto;
+
     @Column(name = "notes")
     private String notes;
 

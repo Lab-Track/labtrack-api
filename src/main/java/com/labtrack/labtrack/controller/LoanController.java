@@ -2,9 +2,12 @@ package com.labtrack.labtrack.controller;
 
 import com.labtrack.labtrack.dto.LoanRequestDTO;
 import com.labtrack.labtrack.dto.LoanResponseDTO;
+import com.labtrack.labtrack.dto.LoanReturnRequestDTO;
+import com.labtrack.labtrack.dto.LoanReturnResponseDTO;
 import com.labtrack.labtrack.dto.LoanSummaryDTO;
 import com.labtrack.labtrack.service.LoanService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -74,5 +79,34 @@ public class LoanController {
         List<LoanSummaryDTO> loans = loanService.findAllActiveLoans();
 
         return ResponseEntity.ok(loans);
+    }
+
+    @Operation(
+            summary = "Registrar devolução (RF04)",
+            description = "Devolve uma quantidade de unidades de um empréstimo (as mais antigas ainda " +
+                    "emprestadas). O empréstimo passa a 'partial' se ainda restarem unidades emprestadas, " +
+                    "ou 'returned' se todas as unidades já tiverem voltado. O equipamento volta a " +
+                    "DISPONIVEL quando nenhuma unidade dele continua emprestada."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Devolução registrada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados obrigatórios ausentes ou inválidos (ex.: foto)"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente"),
+            @ApiResponse(responseCode = "404", description = "Empréstimo não encontrado"),
+            @ApiResponse(responseCode = "409", description = "Empréstimo já devolvido ou quantidade maior que a emprestada")
+    })
+    @PatchMapping("/{id}/return")
+    public ResponseEntity<LoanReturnResponseDTO> registerReturn(
+            @PathVariable
+            @Parameter(description = "ID do empréstimo", example = "1")
+            Long id,
+            @Valid @RequestBody LoanReturnRequestDTO request,
+            Principal principal) {
+
+        log.info("Requisição PATCH /api/loans/{}/return - quantidade={}", id, request.getQuantity());
+
+        LoanReturnResponseDTO response = loanService.registerReturn(id, request, principal.getName());
+
+        return ResponseEntity.ok(response);
     }
 }

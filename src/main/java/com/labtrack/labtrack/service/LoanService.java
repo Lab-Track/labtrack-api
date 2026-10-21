@@ -4,15 +4,20 @@ import com.labtrack.labtrack.dto.ActiveLoanItemDTO;
 import com.labtrack.labtrack.dto.LoanItemRequestDTO;
 import com.labtrack.labtrack.dto.LoanRequestDTO;
 import com.labtrack.labtrack.dto.LoanResponseDTO;
+import com.labtrack.labtrack.dto.LoanReturnRequestDTO;
+import com.labtrack.labtrack.dto.LoanReturnResponseDTO;
 import com.labtrack.labtrack.dto.LoanSummaryDTO;
 import com.labtrack.labtrack.exception.EquipmentNotAvailableException;
 import com.labtrack.labtrack.exception.EquipmentNotFoundException;
 import com.labtrack.labtrack.exception.LoanNotAllowedException;
+import com.labtrack.labtrack.exception.LoanNotFoundException;
+import com.labtrack.labtrack.exception.LoanReturnNotAllowedException;
 import com.labtrack.labtrack.exception.ProfessorNotFoundException;
 import com.labtrack.labtrack.model.Equipment;
 import com.labtrack.labtrack.model.EquipmentStatus;
 import com.labtrack.labtrack.model.Loan;
 import com.labtrack.labtrack.model.LoanItem;
+import com.labtrack.labtrack.model.LoanReturn;
 import com.labtrack.labtrack.model.Professor;
 import com.labtrack.labtrack.model.StatusHistory;
 import com.labtrack.labtrack.model.Student;
@@ -20,6 +25,7 @@ import com.labtrack.labtrack.model.Technician;
 import com.labtrack.labtrack.repository.EquipmentRepository;
 import com.labtrack.labtrack.repository.LoanItemRepository;
 import com.labtrack.labtrack.repository.LoanRepository;
+import com.labtrack.labtrack.repository.LoanReturnRepository;
 import com.labtrack.labtrack.repository.ProfessorRepository;
 import com.labtrack.labtrack.repository.StatusHistoryRepository;
 import com.labtrack.labtrack.repository.TechnicianRepository;
@@ -43,13 +49,17 @@ import java.util.stream.Collectors;
 public class LoanService {
 
     static final String LOAN_STATUS_IN_PROGRESS = "in_progress";
+    static final String LOAN_STATUS_PARTIAL = "partial";
+    static final String LOAN_STATUS_RETURNED = "returned";
     static final String ITEM_STATUS_LOANED = "loaned";
+    static final String ITEM_STATUS_RETURNED = "returned";
     static final int DEFAULT_LOAN_DAYS = 7;
     // RN07: aluno com confiabilidade abaixo de 50% não pode pegar equipamento emprestado.
     static final BigDecimal MIN_RELIABILITY_RATE = BigDecimal.valueOf(50);
 
     private final LoanRepository loanRepository;
     private final LoanItemRepository loanItemRepository;
+    private final LoanReturnRepository loanReturnRepository;
     private final EquipmentRepository equipmentRepository;
     private final ProfessorRepository professorRepository;
     private final TechnicianRepository technicianRepository;
@@ -155,6 +165,104 @@ public class LoanService {
             log.info("{} empréstimo(s) marcado(s) como atrasado(s)", updated);
         }
         return updated;
+    }
+
+    /**
+     * Registra a devolução de uma ou mais unidades de um empréstimo (RF04). Devolve as unidades
+     * mais antigas ainda emprestadas (loan_item com item_status='loaned'), grava 1 LoanReturn por
+     * unidade devolvida, atualiza o status do empréstimo (partial/returned) e libera o equipamento
+     * de volta para DISPONIVEL quando nenhuma unidade dele continua emprestada.
+     */
+    @Transactional
+    public LoanReturnResponseDTO registerReturn(
+            Long loanId, LoanReturnRequestDTO request, String technicianLogin) {
+        log.info("Registrando devolução do empréstimo {}: quantidade={}", loanId, request.getQuantity());
+
+        Loan loan = loanRepository.findById(loanId)
+                .orElseThrow(() -> new LoanNotFoundException(loanId));
+
+        if (LOAN_STATUS_RETURNED.equals(loan.getLoanStatus())) {
+            throw new LoanReturnNotAllowedException(
+                    "Empréstimo " + loanId + " já foi totalmente devolvido");
+        }
+
+        List<LoanItem> loanedItems =
+                loanItemRepository.findByLoanIdAndItemStatusOrderById(loanId, ITEM_STATUS_LOANED);
+        if (request.getQuantity() > loanedItems.size()) {
+            throw new LoanReturnNotAllowedException(
+                    "Empréstimo " + loanId + " tem apenas " + loanedItems.size()
+                            + " unidade(s) emprestada(s), foram informadas " + request.getQuantity()
+                            + " para devolução");
+        }
+
+        Technician technician = technicianRepository.findByLogin(technicianLogin)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Técnico autenticado não encontrado: " + technicianLogin));
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime dueDate = loan.getExtendedDate() != null
+                ? loan.getExtendedDate() : loan.getExpectedReturnDate();
+        boolean overdue = now.isAfter(dueDate);
+
+        List<LoanItem> itemsToReturn = loanedItems.subList(0, request.getQuantity());
+        List<Long> returnedLoanItemIds = new ArrayList<>();
+        for (LoanItem item : itemsToReturn) {
+            item.setItemStatus(ITEM_STATUS_RETURNED);
+            loanItemRepository.save(item);
+
+            LoanReturn loanReturn = new LoanReturn();
+            loanReturn.setLoanItem(item);
+            loanReturn.setReturnDate(now);
+            loanReturn.setReturnCondition(request.getReturnCondition());
+            loanReturn.setReturnPhoto(request.getReturnPhoto());
+            loanReturn.setNotes(request.getNotes());
+            loanReturn.setVerificationStatus(request.getVerificationStatus());
+            loanReturn.setOverdue(overdue);
+            loanReturnRepository.save(loanReturn);
+
+            returnedLoanItemIds.add(item.getId());
+        }
+
+        int remaining = loanedItems.size() - itemsToReturn.size();
+        loan.setLoanStatus(remaining == 0 ? LOAN_STATUS_RETURNED : LOAN_STATUS_PARTIAL);
+        loanRepository.save(loan);
+
+        // Empréstimos com vários tipos de equipamento ainda não existem (RF09), então todo
+        // LoanItem de um mesmo Loan compartilha o mesmo equipamento (ver toSummary()).
+        releaseEquipmentIfNoUnitsLeft(itemsToReturn.get(0).getEquipment(), technician, loan);
+
+        log.info("Devolução registrada: empréstimo {} agora '{}' ({} unidade(s) ainda emprestada(s))",
+                loanId, loan.getLoanStatus(), remaining);
+
+        return LoanReturnResponseDTO.builder()
+                .loanId(loanId)
+                .loanStatus(loan.getLoanStatus())
+                .remainingQuantity(remaining)
+                .returnedLoanItemIds(returnedLoanItemIds)
+                .returnDate(now)
+                .overdue(overdue)
+                .build();
+    }
+
+    private void releaseEquipmentIfNoUnitsLeft(Equipment equipment, Technician technician, Loan loan) {
+        if (equipment.getCurrentStatus() != EquipmentStatus.EMPRESTADO) {
+            return;
+        }
+        if (loanItemRepository.existsByEquipmentIdAndItemStatus(equipment.getId(), ITEM_STATUS_LOANED)) {
+            return;
+        }
+
+        StatusHistory history = new StatusHistory();
+        history.setEquipment(equipment);
+        history.setPreviousStatus(equipment.getCurrentStatus().name());
+        history.setNewStatus(EquipmentStatus.DISPONIVEL.name());
+        history.setChangeDate(LocalDateTime.now());
+        history.setTechnician(technician);
+        history.setReason("Devolução #" + loan.getId());
+        statusHistoryRepository.save(history);
+
+        equipment.setCurrentStatus(EquipmentStatus.DISPONIVEL);
+        equipmentRepository.save(equipment);
     }
 
     // RN01: só empresta equipamento DISPONIVEL (EMPRESTADO, MANUTENCAO, DANIFICADO e INATIVO bloqueiam) e
