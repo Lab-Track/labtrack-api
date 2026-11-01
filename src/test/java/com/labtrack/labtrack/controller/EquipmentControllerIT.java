@@ -151,6 +151,7 @@ class EquipmentControllerIT {
         loanReturnA.setLoanItem(loanItemA);
         loanReturnA.setReturnDate(LocalDateTime.of(2026, 9, 2, 9, 0));
         loanReturnA.setReturnCondition("GOOD");
+        loanReturnA.setReturnPhoto("return_a.jpg");
         loanReturnA.setVerificationStatus("working");
         loanReturnA.setOverdue(false);
         loanReturnRepository.save(loanReturnA);

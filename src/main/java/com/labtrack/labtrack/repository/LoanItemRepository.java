@@ -23,4 +23,8 @@ public interface LoanItemRepository extends JpaRepository<LoanItem, Long> {
     boolean existsByEquipmentId(Long equipmentId);
 
     boolean existsByEquipmentIdAndItemStatus(Long equipmentId, String itemStatus);
+
+    // Ordenado por id: devolução parcial sempre libera as mesmas unidades primeiro,
+    // de forma determinística, quando a quantidade devolvida é menor que a emprestada.
+    List<LoanItem> findByLoanIdAndItemStatusOrderById(Long loanId, String itemStatus);
 }
