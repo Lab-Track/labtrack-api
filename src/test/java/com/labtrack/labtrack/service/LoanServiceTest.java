@@ -371,9 +371,9 @@ class LoanServiceTest {
             items.add(loanItem);
         }
         loan.setLoanItems(items);
-        when(loanRepository.findById(100L)).thenReturn(Optional.of(loan));
-        when(loanItemRepository.findByLoanIdAndItemStatusOrderById(100L, "loaned")).thenReturn(items);
-        when(technicianRepository.findByLogin("tecnico.teste")).thenReturn(Optional.of(technician));
+        when(loanRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(loan));
+        lenient().when(loanItemRepository.findByLoanIdAndItemStatusOrderById(100L, "loaned")).thenReturn(items);
+        lenient().when(technicianRepository.findByLogin("tecnico.teste")).thenReturn(Optional.of(technician));
         lenient().when(loanItemRepository.save(any(LoanItem.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(loanReturnRepository.save(any(LoanReturn.class))).thenAnswer(inv -> inv.getArgument(0));
         return loan;
@@ -427,5 +427,55 @@ class LoanServiceTest {
 
         assertThat(equipment.getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
         verify(statusHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    void partialReturnLeavesLoanAsPartial() {
+        equipment.setQuantity(3);
+        equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
+        Loan loan = loanWithLoanedItems(3);
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(2L);
+
+        var response = loanService.registerReturn(100L, returnRequest(1), "tecnico.teste");
+
+        assertThat(loan.getLoanStatus()).isEqualTo("partial");
+        assertThat(response.getLoanStatus()).isEqualTo("partial");
+        assertThat(response.getRemainingQuantity()).isEqualTo(2);
+        assertThat(response.getReturnedLoanItemIds()).containsExactly(200L);
+    }
+
+    @Test
+    void fullReturnLeavesLoanAsReturned() {
+        equipment.setQuantity(2);
+        equipment.setCurrentStatus(EquipmentStatus.EMPRESTADO);
+        Loan loan = loanWithLoanedItems(2);
+        when(loanItemRepository.countByEquipmentIdAndItemStatus(1L, "loaned")).thenReturn(0L);
+
+        var response = loanService.registerReturn(100L, returnRequest(2), "tecnico.teste");
+
+        assertThat(loan.getLoanStatus()).isEqualTo("returned");
+        assertThat(response.getRemainingQuantity()).isZero();
+        verify(loanReturnRepository, org.mockito.Mockito.times(2)).save(any(LoanReturn.class));
+    }
+
+    @Test
+    void returnWithQuantityGreaterThanLoanedIsRejected() {
+        loanWithLoanedItems(2);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> loanService.registerReturn(100L, returnRequest(3), "tecnico.teste"))
+                .isInstanceOf(com.labtrack.labtrack.exception.LoanReturnNotAllowedException.class);
+        verify(loanReturnRepository, never()).save(any());
+    }
+
+    @Test
+    void returnOfAlreadyReturnedLoanIsRejected() {
+        Loan loan = loanWithLoanedItems(1);
+        loan.setLoanStatus("returned");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> loanService.registerReturn(100L, returnRequest(1), "tecnico.teste"))
+                .isInstanceOf(com.labtrack.labtrack.exception.LoanReturnNotAllowedException.class);
+        verify(loanReturnRepository, never()).save(any());
     }
 }

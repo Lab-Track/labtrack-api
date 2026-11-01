@@ -178,7 +178,7 @@ public class LoanService {
             Long loanId, LoanReturnRequestDTO request, String technicianLogin) {
         log.info("Registrando devolução do empréstimo {}: quantidade={}", loanId, request.getQuantity());
 
-        Loan loan = loanRepository.findById(loanId)
+        Loan loan = loanRepository.findByIdForUpdate(loanId)
                 .orElseThrow(() -> new LoanNotFoundException(loanId));
 
         if (LOAN_STATUS_RETURNED.equals(loan.getLoanStatus())) {
@@ -337,7 +337,8 @@ public class LoanService {
                 .professorName(loan.getResponsibleProfessor().getName())
                 .technicianName(loan.getTechnician().getName())
                 .checkoutDate(loan.getCheckoutDate())
-                .expectedReturnDate(loan.getExpectedReturnDate())
+                .expectedReturnDate(loan.getExtendedDate() != null
+                        ? loan.getExtendedDate() : loan.getExpectedReturnDate())
                 .loanStatus(loan.getLoanStatus())
                 .build();
     }
