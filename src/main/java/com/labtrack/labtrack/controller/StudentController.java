@@ -54,6 +54,27 @@ public class StudentController {
     }
 
     @Operation(
+            summary = "Buscar aluno por matrícula",
+            description = "Retorna os dados cadastrais do aluno pela matrícula, usado para preencher " +
+                    "automaticamente o formulário de empréstimo quando o aluno já existe."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Aluno encontrado"),
+            @ApiResponse(responseCode = "404", description = "Aluno não encontrado para a matrícula informada"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token")
+    })
+    @GetMapping("/{registration}")
+    public ResponseEntity<StudentResponse> getByRegistration(
+            @PathVariable
+            @Parameter(description = "Student registration number", example = "2021001")
+            String registration) {
+
+        log.info("Request GET /api/students/{}", registration);
+
+        return ResponseEntity.ok(studentService.findByRegistrationNumber(registration));
+    }
+
+    @Operation(
             summary = "Register student manually (RF18)",
             description = "Registers a student by name, registration number, email and phone, without linking to a loan."
     )

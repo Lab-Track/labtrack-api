@@ -23,7 +23,11 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
                     "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
                     "OR LOWER(e.code) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) AND " +
                     "(:projectId IS NULL OR e.project.id = :projectId) " +
-                    "ORDER BY e.createdAt DESC",
+                    // Desempate por id: linhas com o mesmo createdAt (ex.: seeds inseridos no
+                    // mesmo INSERT, onde now() é avaliado uma única vez) deixam o ORDER BY só
+                    // por createdAt instável entre execuções, fazendo a paginação por OFFSET
+                    // repetir ou pular itens entre páginas.
+                    "ORDER BY e.createdAt DESC, e.id DESC",
             countQuery = "SELECT COUNT(e) FROM Equipment e WHERE " +
                     "(:status IS NULL OR e.currentStatus = :status) AND " +
                     "(:search IS NULL OR LOWER(e.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +

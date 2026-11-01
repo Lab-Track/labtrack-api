@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -259,5 +260,103 @@ class LoanControllerIT {
                 .isEqualTo("in_progress");
         assertThat(loanRepository.findById(returned.getId()).orElseThrow().getLoanStatus())
                 .isEqualTo("returned");
+    }
+
+    // --- devolução (RF04) ---
+
+    private Long createLoanOf(Equipment eq, String registration) throws Exception {
+        String json = postLoan(body(registration, eq.getId(), "/uploads/foto.jpg"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(json).get("loanId").asLong();
+    }
+
+    private Map<String, Object> returnBody(Integer quantity, String photo, String condition) {
+        Map<String, Object> b = new java.util.HashMap<>();
+        b.put("quantidade", quantity);
+        b.put("estadoDevolucao", condition);
+        b.put("fotoDevolucao", photo);
+        b.put("verificacaoFuncionamento", "Funcionando normalmente");
+        return b;
+    }
+
+    private org.springframework.test.web.servlet.ResultActions patchReturn(Long loanId, Map<String, Object> body)
+            throws Exception {
+        return mockMvc.perform(patch("/api/loans/" + loanId + "/return")
+                .header("Authorization", "Bearer " + validToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)));
+    }
+
+    @Test
+    void fullReturnMarksLoanReturnedAndEquipmentAvailable() throws Exception {
+        Long loanId = createLoanOf(equipment, "LOAN-3000001");
+
+        patchReturn(loanId, returnBody(1, "/uploads/dev.jpg", "Sem avarias"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loanStatus").value("returned"))
+                .andExpect(jsonPath("$.remainingQuantity").value(0));
+
+        assertThat(equipmentRepository.findById(equipment.getId()).orElseThrow().getCurrentStatus())
+                .isEqualTo(EquipmentStatus.DISPONIVEL);
+    }
+
+    @Test
+    void partialReturnMarksLoanPartialAndFreesEquipmentWithFreeUnits() throws Exception {
+        Equipment multi = newEquipment("LOAN-IT-MULTI", 2);
+        Map<String, Object> b = body("LOAN-3000002", multi.getId(), "/uploads/foto.jpg");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> item = ((List<Map<String, Object>>) b.get("itens")).get(0);
+        b.put("itens", List.of(item, new java.util.HashMap<>(item)));
+        String json = postLoan(b).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long loanId = objectMapper.readTree(json).get("loanId").asLong();
+        assertThat(equipmentRepository.findById(multi.getId()).orElseThrow().getCurrentStatus())
+                .isEqualTo(EquipmentStatus.EMPRESTADO);
+
+        patchReturn(loanId, returnBody(1, "/uploads/dev.jpg", "Sem avarias"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loanStatus").value("partial"))
+                .andExpect(jsonPath("$.remainingQuantity").value(1));
+
+        assertThat(equipmentRepository.findById(multi.getId()).orElseThrow().getCurrentStatus())
+                .isEqualTo(EquipmentStatus.DISPONIVEL);
+    }
+
+    @Test
+    void returnWithQuantityGreaterThanLoanedReturnsConflict() throws Exception {
+        Long loanId = createLoanOf(equipment, "LOAN-3000003");
+
+        patchReturn(loanId, returnBody(2, "/uploads/dev.jpg", "Sem avarias"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void returnOfAlreadyReturnedLoanReturnsConflict() throws Exception {
+        Long loanId = createLoanOf(equipment, "LOAN-3000004");
+        patchReturn(loanId, returnBody(1, "/uploads/dev.jpg", "Sem avarias")).andExpect(status().isOk());
+
+        patchReturn(loanId, returnBody(1, "/uploads/dev.jpg", "Sem avarias"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void returnWithoutPhotoReturnsBadRequest() throws Exception {
+        Long loanId = createLoanOf(equipment, "LOAN-3000005");
+
+        patchReturn(loanId, returnBody(1, null, "Sem avarias")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returnWithoutConditionReturnsBadRequest() throws Exception {
+        Long loanId = createLoanOf(equipment, "LOAN-3000006");
+
+        patchReturn(loanId, returnBody(1, "/uploads/dev.jpg", null)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returnOfUnknownLoanReturnsNotFound() throws Exception {
+        patchReturn(999999L, returnBody(1, "/uploads/dev.jpg", "Sem avarias"))
+                .andExpect(status().isNotFound());
     }
 }
