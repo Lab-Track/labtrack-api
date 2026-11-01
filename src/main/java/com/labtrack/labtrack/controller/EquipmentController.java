@@ -125,6 +125,32 @@ public class EquipmentController {
     }
 
     @Operation(
+            summary = "Atualizar equipamento (RF01)",
+            description = "Substitui os dados cadastrais do equipamento: nome, fotoUrl, categoria, " +
+                    "laboratorio, qtdTotal e projetoId (ausente remove o vínculo com o projeto). O código " +
+                    "(patrimônio) não muda e o campo status é ignorado: use PATCH /{id}/status. " +
+                    "qtdTotal não pode ficar abaixo das unidades emprestadas no momento."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Equipamento atualizado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Campos obrigatórios ausentes ou inválidos"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado - Token JWT inválido ou ausente"),
+            @ApiResponse(responseCode = "404", description = "Equipamento ou projeto não encontrado"),
+            @ApiResponse(responseCode = "409", description = "qtdTotal menor que as unidades emprestadas")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<EquipmentResponseDTO> updateEquipment(
+            @PathVariable
+            @Parameter(description = "ID do equipamento", example = "1")
+            Long id,
+            @Valid @RequestBody EquipmentRequestDTO request) {
+
+        log.info("Requisição PUT /api/equipment/{}", id);
+
+        return ResponseEntity.ok(equipmentService.updateEquipment(id, request));
+    }
+
+    @Operation(
             summary = "Upload de foto de equipamento",
             description = "Recebe um arquivo JPG ou PNG de até 5MB, salva em disco e retorna a URL publica " +
                     "para uso no campo fotoUrl do cadastro de equipamento."

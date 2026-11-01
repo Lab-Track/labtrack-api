@@ -85,8 +85,8 @@ public class LoanController {
             summary = "Registrar devolução (RF04)",
             description = "Devolve uma quantidade de unidades de um empréstimo (as mais antigas ainda " +
                     "emprestadas). O empréstimo passa a 'partial' se ainda restarem unidades emprestadas, " +
-                    "ou 'returned' se todas as unidades já tiverem voltado. O equipamento volta a " +
-                    "DISPONIVEL quando nenhuma unidade dele continua emprestada."
+                    "ou 'returned' se todas as unidades já tiverem voltado. O equipamento EMPRESTADO volta a " +
+                    "DISPONIVEL assim que sobra ao menos uma unidade livre, mesmo em devolução parcial."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Devolução registrada com sucesso"),

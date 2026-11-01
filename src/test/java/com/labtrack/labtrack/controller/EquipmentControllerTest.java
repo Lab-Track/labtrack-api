@@ -1,6 +1,7 @@
 package com.labtrack.labtrack.controller;
 
 import com.labtrack.labtrack.dto.EquipmentHistoryDTO;
+import com.labtrack.labtrack.dto.EquipmentRequestDTO;
 import com.labtrack.labtrack.dto.EquipmentResponseDTO;
 import com.labtrack.labtrack.dto.EquipmentStatusUpdateRequestDTO;
 import com.labtrack.labtrack.dto.PhotoUploadResponseDTO;
@@ -175,6 +176,29 @@ class EquipmentControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getCurrentStatus()).isEqualTo(EquipmentStatus.MANUTENCAO);
+    }
+
+    @Test
+    void shouldReturn200WithUpdatedEquipment_WhenEquipmentIsUpdated() {
+        // Arrange
+        EquipmentRequestDTO request = EquipmentRequestDTO.builder()
+                .name("Osciloscópio Digital")
+                .identificationPhoto("novo.jpg")
+                .laboratory("Laboratório de Eletrônica")
+                .quantity(2)
+                .build();
+        EquipmentResponseDTO updated = EquipmentResponseDTO.builder()
+                .id(1L)
+                .name("Osciloscópio Digital")
+                .build();
+        when(equipmentService.updateEquipment(1L, request)).thenReturn(updated);
+
+        // Act
+        ResponseEntity<EquipmentResponseDTO> response = equipmentController.updateEquipment(1L, request);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isSameAs(updated);
     }
 
     @Test

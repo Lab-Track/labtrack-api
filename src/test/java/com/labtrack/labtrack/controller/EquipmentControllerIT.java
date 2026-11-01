@@ -44,6 +44,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -703,6 +704,81 @@ class EquipmentControllerIT {
         entityManager.persist(project);
 
         return project;
+    }
+
+    private Map<String, Object> updatePayload(int qtdTotal) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("nome", "Osciloscópio Digital");
+        payload.put("fotoUrl", "novo.jpg");
+        payload.put("categoria", "Medição");
+        payload.put("laboratorio", "Laboratório de Eletrônica");
+        payload.put("qtdTotal", qtdTotal);
+        return payload;
+    }
+
+    @Test
+    void updateEquipmentReturns200WithUpdatedData_KeepingCodeAndStatus() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.MANUTENCAO);
+        Map<String, Object> payload = updatePayload(4);
+        payload.put("status", "INATIVO");
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(put("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Osciloscópio Digital"))
+                .andExpect(jsonPath("$.fotoUrl").value("novo.jpg"))
+                .andExpect(jsonPath("$.qtdTotal").value(4))
+                .andExpect(jsonPath("$.codigo").value(equipment.getCode()))
+                .andExpect(jsonPath("$.status").value("MANUTENCAO"));
+    }
+
+    @Test
+    void updateEquipmentReturns404_WhenEquipmentDoesNotExist() throws Exception {
+        mockMvc.perform(put("/api/equipment/{id}", 999999L)
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatePayload(1))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateEquipmentReturns400_WhenPayloadIsMissingRequiredFields() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+
+        mockMvc.perform(put("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void updateEquipmentReturns409_WhenQuantityIsBelowLoanedUnits() throws Exception {
+        Equipment equipment = saveEquipment(EquipmentStatus.DISPONIVEL);
+        saveLoanItem(equipment, "loaned", "in_progress");
+        saveLoanItem(equipment, "loaned", "in_progress");
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(put("/api/equipment/{id}", equipment.getId())
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatePayload(1))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("emprestada")));
+    }
+
+    @Test
+    void updateEquipmentReturns401_WhenNoTokenProvided() throws Exception {
+        mockMvc.perform(put("/api/equipment/{id}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatePayload(1))))
+                .andExpect(status().isUnauthorized());
     }
 
     private Equipment saveEquipment(EquipmentStatus status) {
